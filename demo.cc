@@ -7,6 +7,7 @@
 
 #include <GL/glew.h>
 
+#include <random>
 #include <cstdio>
 
 namespace
@@ -35,8 +36,48 @@ bool initializeProgram(ShaderProgram *program, std::string_view vertexShader, st
     return true;
 }
 
-std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
+std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
 {
+    static std::default_random_engine generator;
+
+    auto center = glm::vec3(0);
+    unsigned direction = 2;
+    float side = 1;
+
+    // 001 -> 010 100
+    // 010 -> 001 100
+    // 100 -> 001 010
+
+    std::uniform_int_distribution<int> zero_or_one(0, 1);
+
+    std::vector<glm::vec3> blocks;
+    for (auto length : segments)
+    {
+        const auto d = 2.0f * side * glm::vec3(direction >> 2, (direction >> 1) & 1, direction & 1);
+        for (int i = 0; i < length; ++i)
+        {
+            blocks.push_back(center);
+            center += d;
+        }
+        switch (direction)
+        {
+        case 1:
+            direction = zero_or_one(generator) ? 2 : 4;
+            break;
+        case 2:
+            direction = zero_or_one(generator) ? 1 : 4;
+            break;
+        case 4:
+            direction = zero_or_one(generator) ? 1 : 2;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        if (zero_or_one(generator))
+            side = -side;
+    }
+
     struct Vertex
     {
         glm::vec3 position;
@@ -101,9 +142,9 @@ std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
 }
 }
 
-Demo::Demo(int width, int height)
-    : m_width(width)
-    , m_height(height)
+Demo::Demo(int canvasWidth, int canvasHeight)
+    : m_canvasWidth(canvasWidth)
+    , m_canvasHeight(canvasHeight)
 {
 }
 
@@ -117,19 +158,6 @@ void Demo::renderAndStep(float dt)
 
 void Demo::render() const
 {
-    const auto projection = glm::perspective(glm::radians(45.0f), static_cast<float>(m_width) / m_height, 0.1f, 100.f);
-    const auto viewPos = glm::vec3(0, 15, 15);
-    const auto viewUp = glm::vec3(0, 1, 0);
-    const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
-
-    const auto center = 0.5f * (m_shape->boundingBox.min + m_shape->boundingBox.max);
-    const auto t = glm::translate(glm::mat4(1.0f), -center);
-    const auto angle = -1.5f * m_curTime;
-    const auto r = glm::rotate(glm::mat4(1.0f), angle, glm::normalize(glm::vec3(1, 1, 1)));
-    const auto model = r * t;
-    const auto mvp = projection * view * model;
-
-    glViewport(0, 0, m_width, m_height);
     glClearColor(1, 1, 1, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -138,9 +166,36 @@ void Demo::render() const
     glCullFace(GL_BACK);
 
     m_shapeProgram->bind();
-    m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
 
-    m_shape->mesh->render(GL_TRIANGLES);
+    constexpr auto Columns = 3;
+
+    auto viewportWidth = m_canvasWidth / Columns;
+    auto viewportHeight = m_canvasHeight / ((m_shapes.size() + Columns - 1) / Columns);
+
+    for (size_t i = 0; i < m_shapes.size(); ++i)
+    {
+        const auto &shape = m_shapes[i];
+
+        const auto viewportX = (i % Columns) * viewportWidth;
+        const auto viewportY = (i / Columns) * viewportHeight;
+        glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+
+        const auto projection =
+            glm::perspective(glm::radians(45.0f), static_cast<float>(viewportWidth) / viewportHeight, 0.1f, 100.f);
+        const auto viewPos = glm::vec3(0, 0, -18);
+        const auto viewUp = glm::vec3(0, 1, 0);
+        const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
+
+        const auto center = 0.5f * (shape->boundingBox.min + shape->boundingBox.max);
+        const auto t = glm::translate(glm::mat4(1.0f), -center);
+        const auto angle = -1.5f * m_curTime;
+        const auto r = glm::rotate(glm::mat4(1.0f), angle, glm::normalize(glm::vec3(1, 1, 1)));
+        const auto model = r * t;
+        const auto mvp = projection * view * model;
+        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
+
+        shape->mesh->render(GL_TRIANGLES);
+    }
 }
 
 bool Demo::initialize()
@@ -149,7 +204,9 @@ bool Demo::initialize()
     if (!initializeProgram(m_shapeProgram.get(), "shaders/shape.vert", "shaders/shape.frag"))
         return false;
 
-    m_shape = initializeShape({{0, 0, 0}, {0, 2, 0}, {0, 4, 0}, {0, 6, 0}, {2, 6, 0}});
+    const std::vector segments = {3, 3, 2, 3};
+    for (int i = 0; i < 6; ++i)
+        m_shapes.push_back(initializeShape(segments));
 
     return true;
 }

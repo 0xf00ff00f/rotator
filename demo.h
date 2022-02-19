@@ -25,7 +25,7 @@ struct Shape
 class Demo : private NonCopyable
 {
 public:
-    Demo(int width, int height);
+    Demo(int canvasWidth, int canvasHeight);
     ~Demo();
 
     bool initialize();
@@ -34,9 +34,9 @@ public:
 private:
     void render() const;
 
-    int m_width;
-    int m_height;
+    int m_canvasWidth;
+    int m_canvasHeight;
     float m_curTime = 0.0f;
-    std::unique_ptr<Shape> m_shape;
+    std::vector<std::unique_ptr<Shape>> m_shapes;
     std::unique_ptr<ShaderProgram> m_shapeProgram;
 };
