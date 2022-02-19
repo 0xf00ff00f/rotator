@@ -44,7 +44,6 @@ endif()
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     add_custom_command(TARGET game
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink "${PROJECT_SOURCE_DIR}/assets" "${CMAKE_CURRENT_BINARY_DIR}/assets"
         COMMAND ${CMAKE_COMMAND} -E create_symlink "${PROJECT_SOURCE_DIR}/shaders" "${CMAKE_CURRENT_BINARY_DIR}/shaders"
     )
 endif()
