@@ -16,6 +16,7 @@ set(SOURCES
     main.cc
     demo.cc
     mesh.cc
+    wobble.cc
     shaderprogram.cc
 )
 

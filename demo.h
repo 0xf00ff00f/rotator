@@ -1,8 +1,10 @@
 #pragma once
 
 #include "noncopyable.h"
+#include "wobble.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <memory>
 #include <vector>
@@ -20,6 +22,8 @@ struct Shape
 {
     BoundingBox boundingBox;
     std::unique_ptr<Mesh> mesh;
+    glm::quat rotation;
+    Wobble wobble = Wobble{0.125f};
 };
 
 class Demo : private NonCopyable
@@ -33,6 +37,7 @@ public:
 
 private:
     void render() const;
+    void update(float dt);
 
     int m_canvasWidth;
     int m_canvasHeight;

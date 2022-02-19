@@ -4,11 +4,13 @@
 #include "shaderprogram.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/random.hpp>
 
 #include <GL/glew.h>
 
 #include <random>
 #include <cstdio>
+#include <iostream>
 
 namespace
 {
@@ -134,9 +136,16 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
         bb.max = glm::max(bb.max, p);
     }
 
+    const auto rotation = [] {
+        const auto direction = glm::ballRand(1.0f);
+        const auto angle = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
+        return glm::quat_cast(glm::rotate(glm::mat4(1.0f), angle, direction));
+    }();
+
     auto shape = std::make_unique<Shape>();
     shape->boundingBox = bb;
     shape->mesh = std::move(mesh);
+    shape->rotation = rotation;
 
     return shape;
 }
@@ -153,12 +162,12 @@ Demo::~Demo() = default;
 void Demo::renderAndStep(float dt)
 {
     render();
-    m_curTime += dt;
+    update(dt);
 }
 
 void Demo::render() const
 {
-    glClearColor(1, 1, 1, 1);
+    glClearColor(0.5, 0.5, 0.5, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
@@ -182,20 +191,28 @@ void Demo::render() const
 
         const auto projection =
             glm::perspective(glm::radians(45.0f), static_cast<float>(viewportWidth) / viewportHeight, 0.1f, 100.f);
-        const auto viewPos = glm::vec3(0, 0, -18);
+
+        const auto viewPos = glm::vec3(0, 0, -20);
         const auto viewUp = glm::vec3(0, 1, 0);
         const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
 
         const auto center = 0.5f * (shape->boundingBox.min + shape->boundingBox.max);
         const auto t = glm::translate(glm::mat4(1.0f), -center);
-        const auto angle = -1.5f * m_curTime;
-        const auto r = glm::rotate(glm::mat4(1.0f), angle, glm::normalize(glm::vec3(1, 1, 1)));
+        const auto r = glm::mat4_cast(shape->rotation) * shape->wobble.rotation();
         const auto model = r * t;
+
         const auto mvp = projection * view * model;
         m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
 
         shape->mesh->render(GL_TRIANGLES);
     }
+}
+
+void Demo::update(float dt)
+{
+    for (auto &shape : m_shapes)
+        shape->wobble.update(dt);
+    m_curTime += dt;
 }
 
 bool Demo::initialize()
