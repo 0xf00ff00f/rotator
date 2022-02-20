@@ -41,6 +41,7 @@ public:
 private:
     enum class State
     {
+        Intro,
         Playing,
         Success,
         Result,
@@ -55,13 +56,15 @@ private:
     void renderUI() const;
     void renderTimer() const;
     void renderScore() const;
+    void renderIntro() const;
+    void drawCenteredText(const glm::vec2 &pos, const glm::vec4 &color, const std::string &text) const;
 
     int m_canvasWidth;
     int m_canvasHeight;
     std::unique_ptr<ShaderManager> m_shaderManager;
     std::unique_ptr<UIPainter> m_uiPainter;
     std::vector<std::unique_ptr<Shape>> m_shapes;
-    State m_state = State::Playing;
+    State m_state = State::Intro;
     int m_firstShape = 0;
     int m_secondShape = 0;
     float m_stateTime = 0.0f;

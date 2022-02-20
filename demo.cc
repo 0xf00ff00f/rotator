@@ -176,7 +176,9 @@ void Demo::render() const
     glClearColor(BackgroundColor.r, BackgroundColor.g, BackgroundColor.b, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    renderShapes();
+    if (m_state != State::Intro)
+        renderShapes();
+
     renderUI();
 }
 
@@ -278,6 +280,9 @@ void Demo::renderUI() const
 
     switch (m_state)
     {
+    case State::Intro:
+        renderIntro();
+        break;
     case State::Playing:
     case State::Success:
         renderTimer();
@@ -342,6 +347,20 @@ void Demo::renderTimer() const
     m_uiPainter->drawText(textPos + glm::vec2(bigAdvance, 0), glm::vec4(0, 0, 0, alpha), 0, smallText);
 }
 
+void Demo::renderIntro() const
+{
+    static const UIPainter::Font FontBig{FontName, 40};
+    static const UIPainter::Font FontSmall{FontName, 40};
+
+    const auto color = glm::vec4(0, 0, 0, 1);
+
+    m_uiPainter->setFont(FontBig);
+    drawCenteredText(glm::vec2(0, -40), color, "SELECT THE MATCHING SHAPES"s);
+
+    m_uiPainter->setFont(FontSmall);
+    drawCenteredText(glm::vec2(0, 40), color, "TAP TO START"s);
+}
+
 void Demo::renderScore() const
 {
     static const UIPainter::Font FontBig{FontName, 80};
@@ -360,16 +379,19 @@ void Demo::renderScore() const
             return 0.0f;
         return std::min(1.0f, (m_stateTime - StartTime) / FadeInTime);
     }();
-    const auto drawCentered = [this, alpha](const glm::vec2 &pos, const std::string &text) {
-        const auto advance = m_uiPainter->horizontalAdvance(text);
-        m_uiPainter->drawText(pos - glm::vec2(0.5f * advance, 0.0f), glm::vec4(0, 0, 0, alpha), 0, text);
-    };
+    const auto color = glm::vec4(0, 0, 0, alpha);
 
     m_uiPainter->setFont(FontBig);
-    drawCentered(glm::vec2(0, -40), text);
+    drawCenteredText(glm::vec2(0, -40), color, text);
 
     m_uiPainter->setFont(FontSmall);
-    drawCentered(glm::vec2(0, 40), "TAP TO RETRY"s);
+    drawCenteredText(glm::vec2(0, 40), color, "TAP TO RETRY"s);
+}
+
+void Demo::drawCenteredText(const glm::vec2 &pos, const glm::vec4 &color, const std::string &text) const
+{
+    const auto advance = m_uiPainter->horizontalAdvance(text);
+    m_uiPainter->drawText(pos - glm::vec2(0.5f * advance, 0.0f), color, 0, text);
 }
 
 void Demo::update(float elapsed)
@@ -379,6 +401,8 @@ void Demo::update(float elapsed)
     m_stateTime += elapsed;
     switch (m_state)
     {
+    case State::Intro:
+        break;
     case State::Success:
         if (m_stateTime > SuccessAnimationLength)
         {
@@ -401,7 +425,6 @@ void Demo::initialize()
     m_score = 0;
     m_playTime = 0.0f;
     initializeShapes();
-    setState(State::Playing);
 }
 
 void Demo::initializeShapes()
@@ -437,6 +460,9 @@ void Demo::handleKeyPress(Key)
 {
     switch (m_state)
     {
+    case State::Intro:
+        setState(State::Playing);
+        break;
     case State::Playing: {
         if (!m_shapes[m_firstShape]->selected)
         {
@@ -453,6 +479,7 @@ void Demo::handleKeyPress(Key)
     case State::Result: {
         if (m_stateTime > 2.0f)
         {
+            setState(State::Playing);
             initialize();
         }
         break;
