@@ -27,7 +27,7 @@ constexpr const auto TopMargin = 40;
 
 static const auto BackgroundColor = glm::vec3(0.75);
 
-constexpr const auto TotalPlayTime = 5.0f;
+constexpr const auto TotalPlayTime = 120.0f;
 
 constexpr const auto FadeOutTime = 2.0f;
 constexpr const auto SuccessAnimationTime = 2.0f;
@@ -485,17 +485,6 @@ void Demo::handleKeyPress(Key)
     case State::Intro:
         setState(State::Playing);
         break;
-    case State::Playing: {
-        if (!m_shapes[m_firstShape]->selected)
-        {
-            toggleShapeSelection(m_firstShape);
-        }
-        else
-        {
-            toggleShapeSelection(m_secondShape);
-        }
-        break;
-    }
     case State::Result: {
         if (m_stateTime > FadeOutTime)
         {
