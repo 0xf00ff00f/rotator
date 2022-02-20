@@ -135,10 +135,19 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     auto shapeCenter = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
     shapeCenter *= 1.0f / blocks.size();
 
-    const auto rotation = [] {
-        const auto direction = glm::normalize(glm::ballRand(1.0f));
-        const auto angle = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
-        return glm::quat_cast(glm::rotate(glm::mat4(1.0f), angle, direction));
+    const auto rotation = [&zero_or_one] {
+        static const std::initializer_list<glm::vec3> dirs = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}};
+        auto r = glm::mat4(1.0f);
+        for (glm::vec3 dir : dirs)
+        {
+            auto angle = 0.25f * glm::pi<float>();
+            if (zero_or_one(generator))
+                angle = -angle;
+            if (zero_or_one(generator))
+                dir = -dir;
+            r = glm::rotate(r, angle, dir);
+        }
+        return glm::quat_cast(r);
     }();
 
     auto shape = std::make_unique<Shape>();
@@ -202,10 +211,9 @@ void Demo::render() const
         const auto t = glm::translate(glm::mat4(1.0f), -shape->center);
 
         const auto rotation = [this, i, &shape] {
-            if (m_state == State::Success && (i == m_firstShape || i == m_secondShape))
+            if (m_state == State::Success && i == m_secondShape)
             {
-                const auto targetRotation =
-                    glm::mix(m_shapes[m_firstShape]->rotation, m_shapes[m_secondShape]->rotation, 0.5f);
+                const auto targetRotation = m_shapes[m_firstShape]->rotation;
                 float t = std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
                 return glm::mix(shape->rotation, targetRotation, t);
             }
@@ -219,9 +227,12 @@ void Demo::render() const
 
         m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
 
-        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(1, 0, 0, 1));
-        glDisable(GL_DEPTH_TEST);
-        shape->outlineMesh->render(GL_TRIANGLES);
+        if (shape->selected)
+        {
+            m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(1, 0, 0, 1));
+            glDisable(GL_DEPTH_TEST);
+            shape->outlineMesh->render(GL_TRIANGLES);
+        }
 
         const auto bgAlpha = [this, i, &shape] {
             if (m_state == State::Success && i != m_firstShape && i != m_secondShape)
@@ -284,7 +295,15 @@ void Demo::handleKeyPress(Key)
     switch (m_state)
     {
     case State::Playing: {
-        setState(State::Success);
+        if (!m_shapes[m_firstShape]->selected)
+        {
+            m_shapes[m_firstShape]->selected = true;
+        }
+        else
+        {
+            m_shapes[m_secondShape]->selected = true;
+            setState(State::Success);
+        }
         break;
     }
     default:
