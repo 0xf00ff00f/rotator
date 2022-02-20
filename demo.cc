@@ -28,7 +28,9 @@ constexpr const auto TopMargin = 40;
 static const auto BackgroundColor = glm::vec3(0.75);
 
 constexpr const auto TotalPlayTime = 5.0f;
+
 constexpr const auto FadeOutTime = 2.0f;
+constexpr const auto SuccessAnimationTime = 2.0f;
 
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
@@ -153,8 +155,6 @@ std::unique_ptr<Shape> initializeShape(size_t dna)
 
     return shape;
 }
-
-constexpr auto SuccessAnimationLength = 3.0f;
 }
 
 Demo::Demo(int canvasWidth, int canvasHeight)
@@ -218,7 +218,7 @@ void Demo::renderShapes() const
             if (m_state == State::Success && i == m_secondShape)
             {
                 const auto targetRotation = m_shapes[m_firstShape]->rotation;
-                float t = std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+                float t = std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationTime));
                 return glm::mix(shape->rotation, targetRotation, t);
             }
             return shape->rotation;
@@ -254,7 +254,7 @@ void Demo::renderShapes() const
             }
             case State::Success: {
                 if (i != m_firstShape && i != m_secondShape)
-                    return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+                    return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationTime));
                 break;
             }
             default:
@@ -423,7 +423,7 @@ void Demo::update(float elapsed)
     case State::Intro:
         break;
     case State::Success:
-        if (m_stateTime > SuccessAnimationLength)
+        if (m_stateTime > SuccessAnimationTime)
         {
             setState(State::Playing);
             initializeShapes();
