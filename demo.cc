@@ -82,51 +82,55 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
             side = -side;
     }
 
-    struct Vertex
-    {
-        glm::vec3 position;
-        glm::vec2 texCoord;
-    };
-    std::vector<Vertex> vertices;
-    for (const auto &center : blocks)
-    {
-        auto addFace = [&vertices, &center](const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2,
-                                            const glm::vec3 &p3) {
-            vertices.push_back({p0 + center, {0, 0}});
-            vertices.push_back({p1 + center, {0, 1}});
-            vertices.push_back({p2 + center, {1, 1}});
-
-            vertices.push_back({p2 + center, {1, 1}});
-            vertices.push_back({p3 + center, {1, 0}});
-            vertices.push_back({p0 + center, {0, 0}});
+    auto makeMesh = [&blocks](float blockScale) {
+        struct Vertex
+        {
+            glm::vec3 position;
+            glm::vec2 texCoord;
         };
+        std::vector<Vertex> vertices;
+        for (const auto &center : blocks)
+        {
+            auto addFace = [&vertices, &center, blockScale](const glm::vec3 &p0, const glm::vec3 &p1,
+                                                            const glm::vec3 &p2, const glm::vec3 &p3) {
+                vertices.push_back({p0 * blockScale + center, {0, 0}});
+                vertices.push_back({p1 * blockScale + center, {0, 1}});
+                vertices.push_back({p2 * blockScale + center, {1, 1}});
 
-        // top
-        addFace(glm::vec3(-1, 1, -1), glm::vec3(-1, 1, 1), glm::vec3(1, 1, 1), glm::vec3(1, 1, -1));
+                vertices.push_back({p2 * blockScale + center, {1, 1}});
+                vertices.push_back({p3 * blockScale + center, {1, 0}});
+                vertices.push_back({p0 * blockScale + center, {0, 0}});
+            };
 
-        // bottom
-        addFace(glm::vec3(1, -1, -1), glm::vec3(1, -1, 1), glm::vec3(-1, -1, 1), glm::vec3(-1, -1, -1));
+            // top
+            addFace(glm::vec3(-1, 1, -1), glm::vec3(-1, 1, 1), glm::vec3(1, 1, 1), glm::vec3(1, 1, -1));
 
-        // right
-        addFace(glm::vec3(-1, -1, -1), glm::vec3(-1, -1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, 1, -1));
+            // bottom
+            addFace(glm::vec3(1, -1, -1), glm::vec3(1, -1, 1), glm::vec3(-1, -1, 1), glm::vec3(-1, -1, -1));
 
-        // left
-        addFace(glm::vec3(1, 1, -1), glm::vec3(1, 1, 1), glm::vec3(1, -1, 1), glm::vec3(1, -1, -1));
+            // right
+            addFace(glm::vec3(-1, -1, -1), glm::vec3(-1, -1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, 1, -1));
 
-        // back
-        addFace(glm::vec3(-1, -1, -1), glm::vec3(-1, 1, -1), glm::vec3(1, 1, -1), glm::vec3(1, -1, -1));
+            // left
+            addFace(glm::vec3(1, 1, -1), glm::vec3(1, 1, 1), glm::vec3(1, -1, 1), glm::vec3(1, -1, -1));
 
-        // front
-        addFace(glm::vec3(1, -1, 1), glm::vec3(1, 1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, -1, 1));
-    }
+            // back
+            addFace(glm::vec3(-1, -1, -1), glm::vec3(-1, 1, -1), glm::vec3(1, 1, -1), glm::vec3(1, -1, -1));
 
-    auto mesh = std::make_shared<Mesh>();
-    mesh->setVertexCount(vertices.size());
-    mesh->setVertexSize(sizeof(Vertex));
-    mesh->addVertexAttribute(3, GL_FLOAT, offsetof(Vertex, position));
-    mesh->addVertexAttribute(2, GL_FLOAT, offsetof(Vertex, texCoord));
-    mesh->initialize();
-    mesh->setVertexData(vertices.data());
+            // front
+            addFace(glm::vec3(1, -1, 1), glm::vec3(1, 1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, -1, 1));
+        }
+
+        auto mesh = std::make_shared<Mesh>();
+        mesh->setVertexCount(vertices.size());
+        mesh->setVertexSize(sizeof(Vertex));
+        mesh->addVertexAttribute(3, GL_FLOAT, offsetof(Vertex, position));
+        mesh->addVertexAttribute(2, GL_FLOAT, offsetof(Vertex, texCoord));
+        mesh->initialize();
+        mesh->setVertexData(vertices.data());
+
+        return mesh;
+    };
 
     auto shapeCenter = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
     shapeCenter *= 1.0f / blocks.size();
@@ -139,7 +143,8 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
 
     auto shape = std::make_unique<Shape>();
     shape->center = shapeCenter;
-    shape->mesh = std::move(mesh);
+    shape->mesh = makeMesh(1.0f);
+    shape->outlineMesh = makeMesh(1.25f);
     shape->rotation = rotation;
 
     return shape;
@@ -169,7 +174,6 @@ void Demo::render() const
     glClearColor(BackgroundColor.r, BackgroundColor.g, BackgroundColor.b, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
@@ -215,6 +219,10 @@ void Demo::render() const
 
         m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
 
+        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(1, 0, 0, 1));
+        glDisable(GL_DEPTH_TEST);
+        shape->outlineMesh->render(GL_TRIANGLES);
+
         const auto bgAlpha = [this, i, &shape] {
             if (m_state == State::Success && i != m_firstShape && i != m_secondShape)
             {
@@ -223,7 +231,7 @@ void Demo::render() const
             return 0.0f;
         }();
         m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(BackgroundColor, bgAlpha));
-
+        glEnable(GL_DEPTH_TEST);
         shape->mesh->render(GL_TRIANGLES);
     }
 }
@@ -267,6 +275,7 @@ void Demo::initializeShapes()
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
     m_shapes[m_secondShape]->mesh = m_shapes[m_firstShape]->mesh;
+    m_shapes[m_secondShape]->outlineMesh = m_shapes[m_firstShape]->outlineMesh;
     m_shapes[m_secondShape]->center = m_shapes[m_firstShape]->center;
 }
 
