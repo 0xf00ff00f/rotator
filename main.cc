@@ -41,8 +41,6 @@ static bool processEvents()
             const auto &keysym = event.key.keysym;
             switch (keysym.sym)
             {
-            case SDLK_ESCAPE:
-                return false;
             case SDLK_SPACE:
                 demo->handleKeyPress(Key::Space);
                 break;
