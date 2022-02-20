@@ -13,6 +13,7 @@
 #include <random>
 #include <algorithm>
 #include <sstream>
+#include <iomanip>
 
 using namespace std::string_literals;
 
@@ -349,26 +350,43 @@ void Demo::renderTimer() const
 
 void Demo::renderIntro() const
 {
-    static const UIPainter::Font FontBig{FontName, 40};
+    static const UIPainter::Font FontBig{FontName, 60};
     static const UIPainter::Font FontSmall{FontName, 40};
 
     const auto color = glm::vec4(0, 0, 0, 1);
 
     m_uiPainter->setFont(FontBig);
-    drawCenteredText(glm::vec2(0, -40), color, "SELECT THE MATCHING SHAPES"s);
+    drawCenteredText(glm::vec2(0, -40), color, "SELECT THE MATCHING PAIR"s);
 
     m_uiPainter->setFont(FontSmall);
-    drawCenteredText(glm::vec2(0, 40), color, "TAP TO START"s);
+    drawCenteredText(glm::vec2(0, 200), color, "TAP TO START"s);
 }
 
 void Demo::renderScore() const
 {
-    static const UIPainter::Font FontBig{FontName, 80};
+    static const UIPainter::Font FontBig{FontName, 60};
     static const UIPainter::Font FontSmall{FontName, 40};
 
-    const auto text = [this] {
+    const auto scoreText = [this] {
         std::stringstream ss;
-        ss << "SHAPES ROTATED: " << m_score;
+        ss << m_score << " SHAPES ROTATED";
+        return ss.str();
+    }();
+
+    const auto averageText = [this] {
+        std::stringstream ss;
+        if (m_score == 0)
+        {
+            ss << "NaN"s;
+        }
+        else
+        {
+            const auto secs = TotalPlayTime / m_score;
+            ss << std::fixed;
+            ss << std::setprecision(2);
+            ss << secs;
+        }
+        ss << " SECONDS/SHAPE";
         return ss.str();
     }();
 
@@ -382,10 +400,11 @@ void Demo::renderScore() const
     const auto color = glm::vec4(0, 0, 0, alpha);
 
     m_uiPainter->setFont(FontBig);
-    drawCenteredText(glm::vec2(0, -40), color, text);
+    drawCenteredText(glm::vec2(0, -40), color, scoreText);
+    drawCenteredText(glm::vec2(0, 20), color, averageText);
 
     m_uiPainter->setFont(FontSmall);
-    drawCenteredText(glm::vec2(0, 40), color, "TAP TO RETRY"s);
+    drawCenteredText(glm::vec2(0, 200), color, "TAP TO RETRY"s);
 }
 
 void Demo::drawCenteredText(const glm::vec2 &pos, const glm::vec4 &color, const std::string &text) const
