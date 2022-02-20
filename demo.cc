@@ -10,6 +10,7 @@
 #include <GL/glew.h>
 
 #include <random>
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 
@@ -39,7 +40,10 @@ bool initializeProgram(ShaderProgram *program, std::string_view vertexShader, st
     return true;
 }
 
-std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
+constexpr const auto ShapeCount = 6;
+constexpr const auto ShapeSegments = 4;
+
+std::unique_ptr<Shape> initializeShape(size_t dna)
 {
     static std::default_random_engine generator;
 
@@ -51,13 +55,12 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     // 010 -> 001 100
     // 100 -> 001 010
 
-    std::uniform_int_distribution<int> zero_or_one(0, 1);
-
     std::vector<glm::vec3> blocks;
-    for (auto length : segments)
+    for (size_t i = 0; i < ShapeSegments; ++i)
     {
+        auto base = dna >> (i * 3);
         const auto d = 2.0f * side * glm::vec3(direction >> 2, (direction >> 1) & 1, direction & 1);
-        const auto l = length + zero_or_one(generator);
+        const auto l = 2 + (i & 1) + (base & 1);
         for (int i = 0; i < l; ++i)
         {
             blocks.push_back(center);
@@ -66,19 +69,19 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
         switch (direction)
         {
         case 1:
-            direction = zero_or_one(generator) ? 2 : 4;
+            direction = (base & 2) ? 2 : 4;
             break;
         case 2:
-            direction = zero_or_one(generator) ? 1 : 4;
+            direction = (base & 2) ? 1 : 4;
             break;
         case 4:
-            direction = zero_or_one(generator) ? 1 : 2;
+            direction = (base & 2) ? 1 : 2;
             break;
         default:
             assert(false);
             break;
         }
-        if (zero_or_one(generator))
+        if (base & 4)
             side = -side;
     }
 
@@ -121,7 +124,7 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
             addFace(glm::vec3(1, -1, 1), glm::vec3(1, 1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, -1, 1));
         }
 
-        auto mesh = std::make_shared<Mesh>();
+        auto mesh = std::make_unique<Mesh>();
         mesh->setVertexCount(vertices.size());
         mesh->setVertexSize(sizeof(Vertex));
         mesh->addVertexAttribute(3, GL_FLOAT, offsetof(Vertex, position));
@@ -135,7 +138,9 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     auto shapeCenter = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
     shapeCenter *= 1.0f / blocks.size();
 
-    const auto rotation = [&zero_or_one] {
+    const auto rotation = [] {
+        std::uniform_int_distribution<int> zero_or_one(0, 1);
+
         static const std::initializer_list<glm::vec3> dirs = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}};
         auto r = glm::mat4(1.0f);
         for (glm::vec3 dir : dirs)
@@ -151,6 +156,7 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     }();
 
     auto shape = std::make_unique<Shape>();
+    shape->dna = dna;
     shape->center = shapeCenter;
     shape->mesh = makeMesh(1.0f);
     shape->outlineMesh = makeMesh(1.25f);
@@ -272,22 +278,31 @@ bool Demo::initialize()
 
 void Demo::initializeShapes()
 {
-    constexpr auto ShapeCount = 6;
-
-    const std::vector segments = {3, 3, 2, 3};
-
-    m_shapes.clear();
-    for (int i = 0; i < ShapeCount; ++i)
-        m_shapes.push_back(initializeShape(segments));
-
     static std::default_random_engine generator;
 
     m_firstShape = std::uniform_int_distribution<int>(0, ShapeCount - 2)(generator);
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
-    m_shapes[m_secondShape]->mesh = m_shapes[m_firstShape]->mesh;
-    m_shapes[m_secondShape]->outlineMesh = m_shapes[m_firstShape]->outlineMesh;
-    m_shapes[m_secondShape]->center = m_shapes[m_firstShape]->center;
+    m_shapes.clear();
+    for (int i = 0; i < ShapeCount; ++i) {
+        size_t dna = [this, i] {
+            if (i == m_secondShape)
+                return m_shapes[m_firstShape]->dna;
+            std::uniform_int_distribution<size_t> distribution(0, (1 << (3 * ShapeSegments)) - 1);
+            size_t dna;
+            for (;;) {
+                dna = distribution(generator);
+                const auto mirrorDna = dna ^ (2 | (2 << 3) | (2 << 6) | (2 << 9));
+                auto it = std::find_if(m_shapes.begin(), std::next(m_shapes.begin(), i), [dna, mirrorDna](auto& shape) {
+                    return shape->dna == dna || shape->dna == mirrorDna;
+                });
+                if (it == m_shapes.end())
+                    break;
+            }
+            return dna;
+        }();
+        m_shapes.push_back(initializeShape(dna));
+    }
 }
 
 void Demo::handleKeyPress(Key)

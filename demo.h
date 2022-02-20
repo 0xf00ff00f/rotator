@@ -14,9 +14,10 @@ class ShaderProgram;
 
 struct Shape
 {
+    size_t dna;
     glm::vec3 center;
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Mesh> outlineMesh;
+    std::unique_ptr<Mesh> mesh;
+    std::unique_ptr<Mesh> outlineMesh;
     glm::quat rotation;
     bool selected = false;
     Wobble wobble = Wobble{0.125f};
