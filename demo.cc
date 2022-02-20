@@ -448,14 +448,15 @@ void Demo::initialize()
 
 void Demo::initializeShapes()
 {
-    static std::default_random_engine generator;
+    std::random_device rd;
+    std::mt19937 generator(rd());
 
     m_firstShape = std::uniform_int_distribution<int>(0, ShapeCount - 2)(generator);
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
     m_shapes.clear();
     for (int i = 0; i < ShapeCount; ++i) {
-        size_t dna = [this, i] {
+        size_t dna = [this, i, &generator] {
             if (i == m_secondShape)
                 return m_shapes[m_firstShape]->dna;
             std::uniform_int_distribution<size_t> distribution(0, (1 << (3 * ShapeSegments)) - 1);
