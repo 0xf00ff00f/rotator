@@ -35,7 +35,6 @@ public:
     Demo(int canvasWidth, int canvasHeight);
     ~Demo();
 
-    bool initialize();
     void renderAndStep(float elapsed);
     void handleKeyPress(Key key);
 
@@ -44,12 +43,18 @@ private:
     {
         Playing,
         Success,
+        Result,
     };
 
+    void initialize();
     void render() const;
     void update(float elapsed);
     void initializeShapes();
     void setState(State state);
+    void renderShapes() const;
+    void renderUI() const;
+    void renderTimer() const;
+    void renderScore() const;
 
     int m_canvasWidth;
     int m_canvasHeight;
@@ -61,4 +66,5 @@ private:
     int m_secondShape = 0;
     float m_stateTime = 0.0f;
     float m_playTime = 0.0f;
+    int m_score = 0;
 };

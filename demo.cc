@@ -20,7 +20,12 @@ namespace
 {
 constexpr const auto ShapeCount = 6;
 constexpr const auto ShapeSegments = 4;
-constexpr const auto TotalPlayTime = 80.0f;
+
+static const auto BackgroundColor = glm::vec3(0.75);
+
+constexpr const auto TotalPlayTime = 5.0f;
+constexpr const auto FadeOutTime = 2.0f;
+
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
 std::unique_ptr<Shape> initializeShape(size_t dna)
@@ -155,6 +160,7 @@ Demo::Demo(int canvasWidth, int canvasHeight)
     , m_uiPainter(new UIPainter(m_shaderManager.get()))
 {
     m_uiPainter->resize(canvasWidth, canvasHeight);
+    initialize();
 }
 
 Demo::~Demo() = default;
@@ -167,13 +173,18 @@ void Demo::renderAndStep(float elapsed)
 
 void Demo::render() const
 {
-    static const auto BackgroundColor = glm::vec3(0.75);
-
     glClearColor(BackgroundColor.r, BackgroundColor.g, BackgroundColor.b, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    renderShapes();
+    renderUI();
+}
+
+void Demo::renderShapes() const
+{
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glDisable(GL_BLEND);
 
     m_shaderManager->useProgram(ShaderManager::Shape);
 
@@ -219,15 +230,32 @@ void Demo::render() const
 
         if (shape->selected)
         {
-            m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(1, 0, 0, 1));
+            const auto color = [this, i] {
+                static const auto OutlineColor = glm::vec3(1, 0, 0);
+                if (m_state == State::Result)
+                {
+                    return glm::mix(OutlineColor, BackgroundColor, std::min(1.0f, m_stateTime / FadeOutTime));
+                }
+                return OutlineColor;
+            }();
+            m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(color, 1));
             glDisable(GL_DEPTH_TEST);
             shape->outlineMesh->render(GL_TRIANGLES);
         }
 
-        const auto bgAlpha = [this, i, &shape] {
-            if (m_state == State::Success && i != m_firstShape && i != m_secondShape)
+        const auto bgAlpha = [this, i] {
+            switch (m_state)
             {
-                return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+            case State::Result: {
+                return std::min(1.0f, m_stateTime / FadeOutTime);
+            }
+            case State::Success: {
+                if (i != m_firstShape && i != m_secondShape)
+                    return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+                break;
+            }
+            default:
+                break;
             }
             return 0.0f;
         }();
@@ -235,7 +263,10 @@ void Demo::render() const
         glEnable(GL_DEPTH_TEST);
         shape->mesh->render(GL_TRIANGLES);
     }
+}
 
+void Demo::renderUI() const
+{
     glViewport(0, 0, m_canvasWidth, m_canvasHeight);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
@@ -243,14 +274,31 @@ void Demo::render() const
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // timer
-
     m_uiPainter->startPainting();
 
-    static UIPainter::Font TimerFontBig{FontName, 80};
-    static UIPainter::Font TimerFontSmall{FontName, 40};
+    switch (m_state)
+    {
+    case State::Playing:
+    case State::Success:
+        renderTimer();
+        break;
+    case State::Result:
+        renderTimer();
+        renderScore();
+        break;
+    default:
+        break;
+    }
 
-    const auto remaining = static_cast<int>((TotalPlayTime - m_playTime) * 1000);
+    m_uiPainter->donePainting();
+}
+
+void Demo::renderTimer() const
+{
+    static const UIPainter::Font FontBig{FontName, 80};
+    static const UIPainter::Font FontSmall{FontName, 40};
+
+    const auto remaining = std::max(0, static_cast<int>((TotalPlayTime - m_playTime) * 1000));
     const auto bigText = [remaining] {
         std::stringstream ss;
         ss.fill('0');
@@ -271,23 +319,57 @@ void Demo::render() const
         return ss.str();
     }();
 
-    m_uiPainter->setFont(TimerFontBig);
+    const auto alpha = [this] {
+        if (m_state == State::Playing || m_state == State::Success)
+            return 1.0f;
+        return std::max(0.0f, 1.0f - m_stateTime / FadeOutTime);
+    }();
+
+    m_uiPainter->setFont(FontBig);
     const auto bigAdvance = m_uiPainter->horizontalAdvance(bigText);
 
-    m_uiPainter->setFont(TimerFontSmall);
+    m_uiPainter->setFont(FontSmall);
     const auto smallAdvance = m_uiPainter->horizontalAdvance(smallText);
 
     const auto totalAdvance = bigAdvance + smallAdvance;
 
     const auto textPos = glm::vec2(-0.5 * totalAdvance, -0.5 * m_canvasHeight + 50);
 
-    m_uiPainter->setFont(TimerFontBig);
-    m_uiPainter->drawText(textPos, glm::vec4(0, 0, 0, 1), 0, bigText);
+    m_uiPainter->setFont(FontBig);
+    m_uiPainter->drawText(textPos, glm::vec4(0, 0, 0, alpha), 0, bigText);
 
-    m_uiPainter->setFont(TimerFontSmall);
-    m_uiPainter->drawText(textPos + glm::vec2(bigAdvance, 0), glm::vec4(0, 0, 0, 1), 0, smallText);
+    m_uiPainter->setFont(FontSmall);
+    m_uiPainter->drawText(textPos + glm::vec2(bigAdvance, 0), glm::vec4(0, 0, 0, alpha), 0, smallText);
+}
 
-    m_uiPainter->donePainting();
+void Demo::renderScore() const
+{
+    static const UIPainter::Font FontBig{FontName, 80};
+    static const UIPainter::Font FontSmall{FontName, 40};
+
+    const auto text = [this] {
+        std::stringstream ss;
+        ss << "SHAPES ROTATED: " << m_score;
+        return ss.str();
+    }();
+
+    const auto alpha = [this] {
+        constexpr auto StartTime = 2.0f;
+        constexpr auto FadeInTime = 1.0f;
+        if (m_stateTime < StartTime)
+            return 0.0f;
+        return std::min(1.0f, (m_stateTime - StartTime) / FadeInTime);
+    }();
+    const auto drawCentered = [this, alpha](const glm::vec2 &pos, const std::string &text) {
+        const auto advance = m_uiPainter->horizontalAdvance(text);
+        m_uiPainter->drawText(pos - glm::vec2(0.5f * advance, 0.0f), glm::vec4(0, 0, 0, alpha), 0, text);
+    };
+
+    m_uiPainter->setFont(FontBig);
+    drawCentered(glm::vec2(0, -40), text);
+
+    m_uiPainter->setFont(FontSmall);
+    drawCentered(glm::vec2(0, 40), "TAP TO RETRY"s);
 }
 
 void Demo::update(float elapsed)
@@ -306,14 +388,20 @@ void Demo::update(float elapsed)
         break;
     case State::Playing:
         m_playTime += elapsed;
+        if (m_playTime > TotalPlayTime)
+            setState(State::Result);
+        break;
+    case State::Result:
         break;
     }
 }
 
-bool Demo::initialize()
+void Demo::initialize()
 {
+    m_score = 0;
+    m_playTime = 0.0f;
     initializeShapes();
-    return true;
+    setState(State::Playing);
 }
 
 void Demo::initializeShapes()
@@ -357,7 +445,15 @@ void Demo::handleKeyPress(Key)
         else
         {
             m_shapes[m_secondShape]->selected = true;
+            ++m_score;
             setState(State::Success);
+        }
+        break;
+    }
+    case State::Result: {
+        if (m_stateTime > 2.0f)
+        {
+            initialize();
         }
         break;
     }

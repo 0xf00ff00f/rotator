@@ -92,7 +92,6 @@ int main()
     glewInit();
 
     demo.reset(new Demo(width, height));
-    demo->initialize();
 
 #ifdef __EMSCRIPTEN__
     emscripten_request_animation_frame_loop(
