@@ -51,6 +51,10 @@ static bool processEvents()
             }
             break;
         }
+        case SDL_MOUSEBUTTONDOWN: {
+            demo->handleMouseButton(event.button.x, event.button.y);
+            break;
+        }
         case SDL_QUIT:
             return false;
         }

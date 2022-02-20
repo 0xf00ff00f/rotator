@@ -22,6 +22,9 @@ namespace
 constexpr const auto ShapeCount = 6;
 constexpr const auto ShapeSegments = 4;
 
+constexpr const auto Columns = 3;
+constexpr const auto TopMargin = 40;
+
 static const auto BackgroundColor = glm::vec3(0.75);
 
 constexpr const auto TotalPlayTime = 5.0f;
@@ -191,11 +194,8 @@ void Demo::renderShapes() const
 
     m_shaderManager->useProgram(ShaderManager::Shape);
 
-    constexpr auto Columns = 3;
-    constexpr auto TopMargin = 40;
-
-    auto viewportWidth = m_canvasWidth / Columns;
-    auto viewportHeight = (m_canvasHeight - TopMargin) / ((m_shapes.size() + Columns - 1) / Columns);
+    const auto viewportWidth = m_canvasWidth / Columns;
+    const auto viewportHeight = (m_canvasHeight - TopMargin) / ((m_shapes.size() + Columns - 1) / Columns);
 
     for (size_t i = 0; i < m_shapes.size(); ++i)
     {
@@ -473,6 +473,8 @@ void Demo::initializeShapes()
         }();
         m_shapes.push_back(initializeShape(dna));
     }
+
+    m_selectedCount = 0;
 }
 
 void Demo::handleKeyPress(Key)
@@ -485,18 +487,47 @@ void Demo::handleKeyPress(Key)
     case State::Playing: {
         if (!m_shapes[m_firstShape]->selected)
         {
-            m_shapes[m_firstShape]->selected = true;
+            toggleShapeSelection(m_firstShape);
         }
         else
         {
-            m_shapes[m_secondShape]->selected = true;
-            ++m_score;
-            setState(State::Success);
+            toggleShapeSelection(m_secondShape);
         }
         break;
     }
     case State::Result: {
-        if (m_stateTime > 2.0f)
+        if (m_stateTime > FadeOutTime)
+        {
+            setState(State::Playing);
+            initialize();
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void Demo::handleMouseButton(int x, int y)
+{
+    switch (m_state)
+    {
+    case State::Intro:
+        setState(State::Playing);
+        break;
+    case State::Playing: {
+        const auto shapeIndex = [this, x, y = m_canvasHeight - y] {
+            const auto viewportWidth = m_canvasWidth / Columns;
+            const auto viewportHeight = (m_canvasHeight - TopMargin) / ((m_shapes.size() + Columns - 1) / Columns);
+            const auto row = y / viewportHeight;
+            const auto col = x / viewportWidth;
+            return row * Columns + col;
+        }();
+        toggleShapeSelection(shapeIndex);
+        break;
+    }
+    case State::Result: {
+        if (m_stateTime > FadeOutTime)
         {
             setState(State::Playing);
             initialize();
@@ -512,4 +543,29 @@ void Demo::setState(State state)
 {
     m_state = state;
     m_stateTime = 0.0f;
+}
+
+void Demo::toggleShapeSelection(int index)
+{
+    if (index >= m_shapes.size())
+        return;
+    auto &shape = m_shapes[index];
+    if (shape->selected)
+    {
+        shape->selected = false;
+        --m_selectedCount;
+    }
+    else
+    {
+        if (m_selectedCount < 2)
+        {
+            shape->selected = true;
+            ++m_selectedCount;
+            if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
+            {
+                ++m_score;
+                setState(State::Success);
+            }
+        }
+    }
 }

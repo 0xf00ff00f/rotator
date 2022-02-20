@@ -37,6 +37,7 @@ public:
 
     void renderAndStep(float elapsed);
     void handleKeyPress(Key key);
+    void handleMouseButton(int x, int y);
 
 private:
     enum class State
@@ -58,6 +59,7 @@ private:
     void renderScore() const;
     void renderIntro() const;
     void drawCenteredText(const glm::vec2 &pos, const glm::vec4 &color, const std::string &text) const;
+    void toggleShapeSelection(int shapeIndex);
 
     int m_canvasWidth;
     int m_canvasHeight;
@@ -69,5 +71,6 @@ private:
     int m_secondShape = 0;
     float m_stateTime = 0.0f;
     float m_playTime = 0.0f;
+    int m_selectedCount = 0;
     int m_score = 0;
 };
