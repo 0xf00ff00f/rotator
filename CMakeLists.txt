@@ -17,7 +17,16 @@ set(SOURCES
     demo.cc
     mesh.cc
     wobble.cc
+    texture.cc
+    lazytexture.cc
+    textureatlaspage.cc
+    textureatlas.cc
+    fontcache.cc
+    ioutil.cc
     shaderprogram.cc
+    shadermanager.cc
+    spritebatcher.cc
+    uipainter.cc
 )
 
 add_executable(game ${SOURCES})

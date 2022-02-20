@@ -10,7 +10,8 @@
 #include <vector>
 
 class Mesh;
-class ShaderProgram;
+class ShaderManager;
+class UIPainter;
 
 struct Shape
 {
@@ -52,8 +53,9 @@ private:
 
     int m_canvasWidth;
     int m_canvasHeight;
+    std::unique_ptr<ShaderManager> m_shaderManager;
+    std::unique_ptr<UIPainter> m_uiPainter;
     std::vector<std::unique_ptr<Shape>> m_shapes;
-    std::unique_ptr<ShaderProgram> m_shapeProgram;
     State m_state = State::Playing;
     int m_firstShape = 0;
     int m_secondShape = 0;

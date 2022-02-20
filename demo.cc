@@ -1,7 +1,8 @@
 #include "demo.h"
 
 #include "mesh.h"
-#include "shaderprogram.h"
+#include "shadermanager.h"
+#include "uipainter.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
@@ -11,37 +12,15 @@
 
 #include <random>
 #include <algorithm>
-#include <cstdio>
-#include <iostream>
+
+using namespace std::string_literals;
 
 namespace
 {
-bool initializeProgram(ShaderProgram *program, std::string_view vertexShader, std::string_view fragmentShader)
-{
-    if (!program->addShader(GL_VERTEX_SHADER, vertexShader))
-    {
-        fprintf(stderr, "Failed to add vertex shader %s: %s\n", std::string(vertexShader).c_str(),
-                program->log().c_str());
-        return false;
-    }
-
-    if (!program->addShader(GL_FRAGMENT_SHADER, fragmentShader))
-    {
-        std::fprintf(stderr, "Failed to add fragment shader %s: %s\n", std::string(fragmentShader).c_str(),
-                     program->log().c_str());
-        return false;
-    }
-
-    if (!program->link())
-    {
-        std::fprintf(stderr, "Failed to link shader: %s\n", program->log().c_str());
-    }
-
-    return true;
-}
-
 constexpr const auto ShapeCount = 6;
 constexpr const auto ShapeSegments = 4;
+
+static UIPainter::Font DefaultFont{"OpenSans_Regular.ttf", 120};
 
 std::unique_ptr<Shape> initializeShape(size_t dna)
 {
@@ -171,7 +150,10 @@ constexpr auto SuccessAnimationLength = 3.0f;
 Demo::Demo(int canvasWidth, int canvasHeight)
     : m_canvasWidth(canvasWidth)
     , m_canvasHeight(canvasHeight)
+    , m_shaderManager(new ShaderManager)
+    , m_uiPainter(new UIPainter(m_shaderManager.get()))
 {
+    m_uiPainter->resize(canvasWidth, canvasHeight);
 }
 
 Demo::~Demo() = default;
@@ -192,7 +174,7 @@ void Demo::render() const
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    m_shapeProgram->bind();
+    m_shaderManager->useProgram(ShaderManager::Shape);
 
     constexpr auto Columns = 3;
 
@@ -231,11 +213,11 @@ void Demo::render() const
 
         const auto mvp = projection * view * model;
 
-        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
+        m_shaderManager->setUniform(ShaderManager::ModelViewProjection, mvp);
 
         if (shape->selected)
         {
-            m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(1, 0, 0, 1));
+            m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(1, 0, 0, 1));
             glDisable(GL_DEPTH_TEST);
             shape->outlineMesh->render(GL_TRIANGLES);
         }
@@ -247,10 +229,22 @@ void Demo::render() const
             }
             return 0.0f;
         }();
-        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(BackgroundColor, bgAlpha));
+        m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(BackgroundColor, bgAlpha));
         glEnable(GL_DEPTH_TEST);
         shape->mesh->render(GL_TRIANGLES);
     }
+
+    glViewport(0, 0, m_canvasWidth, m_canvasHeight);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_uiPainter->startPainting();
+    m_uiPainter->setFont(DefaultFont);
+    m_uiPainter->drawText(glm::vec2(10, 10), glm::vec4(0, 0, 0, 1), 0, "hello"s);
+    m_uiPainter->donePainting();
 }
 
 void Demo::update(float elapsed)
@@ -267,12 +261,7 @@ void Demo::update(float elapsed)
 
 bool Demo::initialize()
 {
-    m_shapeProgram.reset(new ShaderProgram);
-    if (!initializeProgram(m_shapeProgram.get(), "assets/shaders/shape.vert", "assets/shaders/shape.frag"))
-        return false;
-
     initializeShapes();
-
     return true;
 }
 

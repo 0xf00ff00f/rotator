@@ -1,34 +1,13 @@
 #include "shaderprogram.h"
 
+#include "ioutil.h"
+
 #include <fstream>
 #include <sstream>
 #include <optional>
 #include <memory>
 
 #include <glm/gtc/type_ptr.hpp>
-
-namespace
-{
-std::optional<std::vector<char>> readFile(const std::string &path)
-{
-    std::ifstream file(path);
-    if (!file.is_open())
-        return {};
-
-    auto *buf = file.rdbuf();
-
-    const std::size_t size = buf->pubseekoff(0, file.end, file.in);
-    buf->pubseekpos(0, file.in);
-
-    std::vector<char> data(size + 1);
-    buf->sgetn(data.data(), size);
-    data[size] = 0;
-
-    file.close();
-
-    return data;
-}
-} // namespace
 
 ShaderProgram::ShaderProgram()
     : m_id{glCreateProgram()}
@@ -37,7 +16,7 @@ ShaderProgram::ShaderProgram()
 
 bool ShaderProgram::addShader(GLenum type, std::string_view filename)
 {
-    auto source = readFile(std::string(filename));
+    auto source = Util::readFile(std::string(filename));
     if (!source)
     {
         std::stringstream ss;
@@ -45,6 +24,7 @@ bool ShaderProgram::addShader(GLenum type, std::string_view filename)
         m_log = ss.str();
         return false;
     }
+    source->push_back('\0');
     return addShaderSource(type, reinterpret_cast<const GLchar *>(source->data()));
 }
 
