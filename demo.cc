@@ -215,10 +215,11 @@ void Demo::renderShapes() const
         const auto t = glm::translate(glm::mat4(1.0f), -shape->center);
 
         const auto rotation = [this, i, &shape] {
-            if (m_state == State::Success && i == m_secondShape)
+            if ((m_state == State::Success || m_state == State::Result) && i == m_secondShape)
             {
                 const auto targetRotation = m_shapes[m_firstShape]->rotation;
-                float t = std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationTime));
+                const auto l = m_state == State::Result ? FadeOutTime : 0.5f * SuccessAnimationTime;
+                const auto t = std::min(1.0f, m_stateTime / l);
                 return glm::mix(shape->rotation, targetRotation, t);
             }
             return shape->rotation;
@@ -250,7 +251,10 @@ void Demo::renderShapes() const
             switch (m_state)
             {
             case State::Result: {
-                return std::min(1.0f, m_stateTime / FadeOutTime);
+                auto alpha = std::min(1.0f, m_stateTime / FadeOutTime);
+                if (i == m_firstShape || i == m_secondShape)
+                    alpha *= 0.5f;
+                return alpha;
             }
             case State::Success: {
                 if (i != m_firstShape && i != m_secondShape)
