@@ -39,12 +39,12 @@ endif()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
-    set_target_properties(game PROPERTIES LINK_FLAGS "-s FULL_ES3=1 --preload-file ${CMAKE_SOURCE_DIR}/shaders@/shaders --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets")
+    set_target_properties(game PROPERTIES LINK_FLAGS "-s FULL_ES3=1 --preload-file ${CMAKE_SOURCE_DIR}/assets@/assets")
 endif()
 
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     add_custom_command(TARGET game
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink "${PROJECT_SOURCE_DIR}/shaders" "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "${PROJECT_SOURCE_DIR}/assets" "${CMAKE_CURRENT_BINARY_DIR}/assets"
     )
 endif()

@@ -268,7 +268,7 @@ void Demo::update(float elapsed)
 bool Demo::initialize()
 {
     m_shapeProgram.reset(new ShaderProgram);
-    if (!initializeProgram(m_shapeProgram.get(), "shaders/shape.vert", "shaders/shape.frag"))
+    if (!initializeProgram(m_shapeProgram.get(), "assets/shaders/shape.vert", "assets/shaders/shape.frag"))
         return false;
 
     initializeShapes();
