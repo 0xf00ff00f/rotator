@@ -5,6 +5,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <GL/glew.h>
 
@@ -56,7 +57,8 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     for (auto length : segments)
     {
         const auto d = 2.0f * side * glm::vec3(direction >> 2, (direction >> 1) & 1, direction & 1);
-        for (int i = 0; i < length; ++i)
+        const auto l = length + zero_or_one(generator);
+        for (int i = 0; i < l; ++i)
         {
             blocks.push_back(center);
             center += d;
@@ -118,7 +120,7 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
         addFace(glm::vec3(1, -1, 1), glm::vec3(1, 1, 1), glm::vec3(-1, 1, 1), glm::vec3(-1, -1, 1));
     }
 
-    auto mesh = std::make_unique<Mesh>();
+    auto mesh = std::make_shared<Mesh>();
     mesh->setVertexCount(vertices.size());
     mesh->setVertexSize(sizeof(Vertex));
     mesh->addVertexAttribute(3, GL_FLOAT, offsetof(Vertex, position));
@@ -137,7 +139,7 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     }
 
     const auto rotation = [] {
-        const auto direction = glm::ballRand(1.0f);
+        const auto direction = glm::normalize(glm::ballRand(1.0f));
         const auto angle = glm::linearRand(0.0f, 2.0f * glm::pi<float>());
         return glm::quat_cast(glm::rotate(glm::mat4(1.0f), angle, direction));
     }();
@@ -149,6 +151,8 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
 
     return shape;
 }
+
+constexpr auto SuccessAnimationLength = 3.0f;
 }
 
 Demo::Demo(int canvasWidth, int canvasHeight)
@@ -159,15 +163,17 @@ Demo::Demo(int canvasWidth, int canvasHeight)
 
 Demo::~Demo() = default;
 
-void Demo::renderAndStep(float dt)
+void Demo::renderAndStep(float elapsed)
 {
     render();
-    update(dt);
+    update(elapsed);
 }
 
 void Demo::render() const
 {
-    glClearColor(0.5, 0.5, 0.5, 1);
+    static const auto BackgroundColor = glm::vec3(0.75);
+
+    glClearColor(BackgroundColor.r, BackgroundColor.g, BackgroundColor.b, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
@@ -192,27 +198,54 @@ void Demo::render() const
         const auto projection =
             glm::perspective(glm::radians(45.0f), static_cast<float>(viewportWidth) / viewportHeight, 0.1f, 100.f);
 
-        const auto viewPos = glm::vec3(0, 0, -20);
+        const auto viewPos = glm::vec3(0, 0, -25);
         const auto viewUp = glm::vec3(0, 1, 0);
         const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
 
         const auto center = 0.5f * (shape->boundingBox.min + shape->boundingBox.max);
         const auto t = glm::translate(glm::mat4(1.0f), -center);
-        const auto r = glm::mat4_cast(shape->rotation) * shape->wobble.rotation();
+
+        const auto rotation = [this, i, &shape] {
+            if (m_state == State::Success && (i == m_firstShape || i == m_secondShape))
+            {
+                const auto targetRotation =
+                    glm::mix(m_shapes[m_firstShape]->rotation, m_shapes[m_secondShape]->rotation, 0.5f);
+                float t = std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+                return glm::mix(shape->rotation, targetRotation, t);
+            }
+            return shape->rotation;
+        }();
+
+        const auto r = glm::mat4_cast(rotation) * shape->wobble.rotation();
         const auto model = r * t;
 
         const auto mvp = projection * view * model;
+
         m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mvp"), mvp);
+
+        const auto bgAlpha = [this, i, &shape] {
+            if (m_state == State::Success && i != m_firstShape && i != m_secondShape)
+            {
+                return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationLength));
+            }
+            return 0.0f;
+        }();
+        m_shapeProgram->setUniform(m_shapeProgram->uniformLocation("mixColor"), glm::vec4(BackgroundColor, bgAlpha));
 
         shape->mesh->render(GL_TRIANGLES);
     }
 }
 
-void Demo::update(float dt)
+void Demo::update(float elapsed)
 {
     for (auto &shape : m_shapes)
-        shape->wobble.update(dt);
-    m_curTime += dt;
+        shape->wobble.update(elapsed);
+    m_stateTime += elapsed;
+    if (m_state == State::Success && m_stateTime > SuccessAnimationLength)
+    {
+        setState(State::Playing);
+        initializeShapes();
+    }
 }
 
 bool Demo::initialize()
@@ -221,9 +254,45 @@ bool Demo::initialize()
     if (!initializeProgram(m_shapeProgram.get(), "shaders/shape.vert", "shaders/shape.frag"))
         return false;
 
-    const std::vector segments = {3, 3, 2, 3};
-    for (int i = 0; i < 6; ++i)
-        m_shapes.push_back(initializeShape(segments));
+    initializeShapes();
 
     return true;
+}
+
+void Demo::initializeShapes()
+{
+    constexpr auto ShapeCount = 6;
+
+    const std::vector segments = {3, 3, 2, 3};
+
+    m_shapes.clear();
+    for (int i = 0; i < ShapeCount; ++i)
+        m_shapes.push_back(initializeShape(segments));
+
+    static std::default_random_engine generator;
+
+    m_firstShape = std::uniform_int_distribution<int>(0, ShapeCount - 2)(generator);
+    m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
+
+    m_shapes[m_secondShape]->mesh = m_shapes[m_firstShape]->mesh;
+    m_shapes[m_secondShape]->boundingBox = m_shapes[m_firstShape]->boundingBox;
+}
+
+void Demo::handleKeyPress(Key)
+{
+    switch (m_state)
+    {
+    case State::Playing: {
+        setState(State::Success);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void Demo::setState(State state)
+{
+    m_state = state;
+    m_stateTime = 0.0f;
 }

@@ -38,6 +38,9 @@ static bool processEvents()
             {
             case SDLK_ESCAPE:
                 return false;
+            case SDLK_SPACE:
+                demo->handleKeyPress(Key::Space);
+                break;
             default:
                 break;
             }
