@@ -135,7 +135,7 @@ void SpriteBatcher::renderBatch() const
 
         auto *data = reinterpret_cast<GLfloat *>(glMapBufferRange(GL_ARRAY_BUFFER, m_bufferOffset * sizeof(GLfloat),
                                                                   bufferRangeSize * sizeof(GLfloat),
-                                                                  GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+                                                                  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
         for (auto it = batchStart; it != batchEnd; ++it)
         {
             auto *quadPtr = *it;

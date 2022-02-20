@@ -17,6 +17,7 @@ Texture::Texture(int width, int height, PixelType pixelType, const unsigned char
     : m_width(width)
     , m_height(height)
     , m_format(pixelType == PixelType::RGBA ? GL_RGBA : GL_RED)
+    , m_internalFormat(pixelType == PixelType::RGBA ? GL_RGBA8 : GL_R8)
 {
     glGenTextures(1, &m_id);
 
@@ -28,7 +29,7 @@ Texture::Texture(int width, int height, PixelType pixelType, const unsigned char
     glTexParameteri(Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    glTexImage2D(Target, 0, m_format, m_width, m_height, 0, m_format, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(Target, 0, m_internalFormat, m_width, m_height, 0, m_format, GL_UNSIGNED_BYTE, data);
 }
 
 Texture::~Texture()

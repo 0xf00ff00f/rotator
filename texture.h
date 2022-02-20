@@ -26,5 +26,6 @@ private:
     int m_width;
     int m_height;
     GLuint m_id;
+    GLint m_internalFormat;
     GLint m_format;
 };

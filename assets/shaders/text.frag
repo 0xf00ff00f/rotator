@@ -1,4 +1,6 @@
-#version 420 core
+#version 300 es
+
+precision highp float;
 
 uniform sampler2D baseColorTexture;
 

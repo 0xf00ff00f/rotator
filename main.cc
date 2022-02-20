@@ -1,5 +1,10 @@
 #include "demo.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
