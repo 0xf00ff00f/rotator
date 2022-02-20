@@ -128,15 +128,8 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     mesh->initialize();
     mesh->setVertexData(vertices.data());
 
-    BoundingBox bb;
-    bb.min = glm::vec3(std::numeric_limits<float>::max());
-    bb.max = glm::vec3(std::numeric_limits<float>::min());
-    for (auto &vertex : vertices)
-    {
-        const auto &p = vertex.position;
-        bb.min = glm::min(bb.min, p);
-        bb.max = glm::max(bb.max, p);
-    }
+    auto shapeCenter = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
+    shapeCenter *= 1.0f / blocks.size();
 
     const auto rotation = [] {
         const auto direction = glm::normalize(glm::ballRand(1.0f));
@@ -145,7 +138,7 @@ std::unique_ptr<Shape> initializeShape(const std::vector<int> &segments)
     }();
 
     auto shape = std::make_unique<Shape>();
-    shape->boundingBox = bb;
+    shape->center = shapeCenter;
     shape->mesh = std::move(mesh);
     shape->rotation = rotation;
 
@@ -202,8 +195,7 @@ void Demo::render() const
         const auto viewUp = glm::vec3(0, 1, 0);
         const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
 
-        const auto center = 0.5f * (shape->boundingBox.min + shape->boundingBox.max);
-        const auto t = glm::translate(glm::mat4(1.0f), -center);
+        const auto t = glm::translate(glm::mat4(1.0f), -shape->center);
 
         const auto rotation = [this, i, &shape] {
             if (m_state == State::Success && (i == m_firstShape || i == m_secondShape))
@@ -275,7 +267,7 @@ void Demo::initializeShapes()
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
     m_shapes[m_secondShape]->mesh = m_shapes[m_firstShape]->mesh;
-    m_shapes[m_secondShape]->boundingBox = m_shapes[m_firstShape]->boundingBox;
+    m_shapes[m_secondShape]->center = m_shapes[m_firstShape]->center;
 }
 
 void Demo::handleKeyPress(Key)

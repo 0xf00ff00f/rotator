@@ -12,15 +12,9 @@
 class Mesh;
 class ShaderProgram;
 
-struct BoundingBox
-{
-    glm::vec3 min;
-    glm::vec3 max;
-};
-
 struct Shape
 {
-    BoundingBox boundingBox;
+    glm::vec3 center;
     std::shared_ptr<Mesh> mesh;
     glm::quat rotation;
     Wobble wobble = Wobble{0.125f};
