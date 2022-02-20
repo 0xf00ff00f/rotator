@@ -60,4 +60,5 @@ private:
     int m_firstShape = 0;
     int m_secondShape = 0;
     float m_stateTime = 0.0f;
+    float m_playTime = 0.0f;
 };

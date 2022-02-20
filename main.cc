@@ -69,7 +69,7 @@ int main()
     }
 
     const int width = 900;
-    const int height = 600;
+    const int height = 640;
     const int bpp = info->vfmt->BitsPerPixel;
     const Uint32 flags = SDL_OPENGL;
 

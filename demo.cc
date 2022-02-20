@@ -12,6 +12,7 @@
 
 #include <random>
 #include <algorithm>
+#include <sstream>
 
 using namespace std::string_literals;
 
@@ -19,8 +20,8 @@ namespace
 {
 constexpr const auto ShapeCount = 6;
 constexpr const auto ShapeSegments = 4;
-
-static UIPainter::Font DefaultFont{"OpenSans_Regular.ttf", 120};
+constexpr const auto TotalPlayTime = 80.0f;
+constexpr const char *FontName = "OpenSans_Regular.ttf";
 
 std::unique_ptr<Shape> initializeShape(size_t dna)
 {
@@ -177,9 +178,10 @@ void Demo::render() const
     m_shaderManager->useProgram(ShaderManager::Shape);
 
     constexpr auto Columns = 3;
+    constexpr auto TopMargin = 40;
 
     auto viewportWidth = m_canvasWidth / Columns;
-    auto viewportHeight = m_canvasHeight / ((m_shapes.size() + Columns - 1) / Columns);
+    auto viewportHeight = (m_canvasHeight - TopMargin) / ((m_shapes.size() + Columns - 1) / Columns);
 
     for (size_t i = 0; i < m_shapes.size(); ++i)
     {
@@ -241,9 +243,50 @@ void Demo::render() const
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // timer
+
     m_uiPainter->startPainting();
-    m_uiPainter->setFont(DefaultFont);
-    m_uiPainter->drawText(glm::vec2(10, 10), glm::vec4(0, 0, 0, 1), 0, "hello"s);
+
+    static UIPainter::Font TimerFontBig{FontName, 80};
+    static UIPainter::Font TimerFontSmall{FontName, 40};
+
+    const auto remaining = static_cast<int>((TotalPlayTime - m_playTime) * 1000);
+    const auto bigText = [remaining] {
+        std::stringstream ss;
+        ss.fill('0');
+        ss.width(2);
+        ss << remaining / 1000 / 60;
+        ss << ':';
+        ss.fill('0');
+        ss.width(2);
+        ss << (remaining / 1000) % 60;
+        return ss.str();
+    }();
+    const auto smallText = [remaining] {
+        std::stringstream ss;
+        ss << '.';
+        ss.fill('0');
+        ss.width(3);
+        ss << remaining % 1000;
+        return ss.str();
+    }();
+
+    m_uiPainter->setFont(TimerFontBig);
+    const auto bigAdvance = m_uiPainter->horizontalAdvance(bigText);
+
+    m_uiPainter->setFont(TimerFontSmall);
+    const auto smallAdvance = m_uiPainter->horizontalAdvance(smallText);
+
+    const auto totalAdvance = bigAdvance + smallAdvance;
+
+    const auto textPos = glm::vec2(-0.5 * totalAdvance, -0.5 * m_canvasHeight + 50);
+
+    m_uiPainter->setFont(TimerFontBig);
+    m_uiPainter->drawText(textPos, glm::vec4(0, 0, 0, 1), 0, bigText);
+
+    m_uiPainter->setFont(TimerFontSmall);
+    m_uiPainter->drawText(textPos + glm::vec2(bigAdvance, 0), glm::vec4(0, 0, 0, 1), 0, smallText);
+
     m_uiPainter->donePainting();
 }
 
@@ -252,10 +295,18 @@ void Demo::update(float elapsed)
     for (auto &shape : m_shapes)
         shape->wobble.update(elapsed);
     m_stateTime += elapsed;
-    if (m_state == State::Success && m_stateTime > SuccessAnimationLength)
+    switch (m_state)
     {
-        setState(State::Playing);
-        initializeShapes();
+    case State::Success:
+        if (m_stateTime > SuccessAnimationLength)
+        {
+            setState(State::Playing);
+            initializeShapes();
+        }
+        break;
+    case State::Playing:
+        m_playTime += elapsed;
+        break;
     }
 }
 
