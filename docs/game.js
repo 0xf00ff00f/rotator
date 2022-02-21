@@ -199,7 +199,7 @@ Module['FS_createPath']("/assets", "shaders", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/assets/fonts/OpenSans_Regular.ttf", "start": 0, "end": 217360}, {"filename": "/assets/shaders/shape.frag", "start": 217360, "end": 217870}, {"filename": "/assets/shaders/text.frag", "start": 217870, "end": 218161}, {"filename": "/assets/shaders/shape.vert", "start": 218161, "end": 218388}, {"filename": "/assets/shaders/text.vert", "start": 218388, "end": 218691}], "remote_package_size": 218691, "package_uuid": "832353c1-03b8-4253-b9b8-6be29b5cb2d6"});
+    loadPackage({"files": [{"filename": "/assets/fonts/OpenSans_Regular.ttf", "start": 0, "end": 217360}, {"filename": "/assets/shaders/shape.frag", "start": 217360, "end": 217870}, {"filename": "/assets/shaders/text.frag", "start": 217870, "end": 218161}, {"filename": "/assets/shaders/shape.vert", "start": 218161, "end": 218388}, {"filename": "/assets/shaders/text.vert", "start": 218388, "end": 218691}], "remote_package_size": 218691, "package_uuid": "40166efc-c134-4e1d-80d2-e43d9b044946"});
 
   })();
 
