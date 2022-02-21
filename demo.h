@@ -15,7 +15,8 @@ class UIPainter;
 
 struct Shape
 {
-    size_t dna;
+    std::vector<glm::vec3> blocks;
+    std::vector<float> id;
     glm::vec3 center;
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Mesh> outlineMesh;

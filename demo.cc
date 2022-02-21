@@ -34,17 +34,11 @@ constexpr const auto SuccessAnimationTime = 2.0f;
 
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
-std::unique_ptr<Shape> initializeShape(size_t dna)
+std::optional<std::vector<glm::vec3>> generateBlocks(size_t dna)
 {
-    static std::default_random_engine generator;
-
     auto center = glm::vec3(0);
     unsigned direction = 2;
     float side = 1;
-
-    // 001 -> 010 100
-    // 010 -> 001 100
-    // 100 -> 001 010
 
     std::vector<glm::vec3> blocks;
     for (size_t i = 0; i < ShapeSegments; ++i)
@@ -54,9 +48,18 @@ std::unique_ptr<Shape> initializeShape(size_t dna)
         const auto l = 2 + (i & 1) + (base & 1);
         for (int i = 0; i < l; ++i)
         {
+            // reject self-intersecting shapes
+            auto it = std::find(blocks.begin(), blocks.end(), center);
+            if (it != blocks.end())
+                return {};
             blocks.push_back(center);
             center += d;
         }
+
+        // 001 -> 010 100
+        // 010 -> 001 100
+        // 100 -> 001 010
+
         switch (direction)
         {
         case 1:
@@ -75,6 +78,24 @@ std::unique_ptr<Shape> initializeShape(size_t dna)
         if (base & 4)
             side = -side;
     }
+
+    return blocks;
+}
+
+std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
+{
+    auto center = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
+    center *= 1.0f / blocks.size();
+    std::vector<float> id;
+    std::transform(blocks.begin(), blocks.end(), std::back_inserter(id),
+                   [&center](const glm::vec3 &block) { return glm::abs(glm::distance(center, block)); });
+    std::sort(id.begin(), id.end());
+    return id;
+}
+
+std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
+{
+    static std::default_random_engine generator;
 
     auto makeMesh = [&blocks](float blockScale) {
         struct Vertex
@@ -126,8 +147,8 @@ std::unique_ptr<Shape> initializeShape(size_t dna)
         return mesh;
     };
 
-    auto shapeCenter = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
-    shapeCenter *= 1.0f / blocks.size();
+    auto center = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
+    center *= 1.0f / blocks.size();
 
     const auto rotation = [] {
         std::uniform_int_distribution<int> zero_or_one(0, 1);
@@ -147,8 +168,9 @@ std::unique_ptr<Shape> initializeShape(size_t dna)
     }();
 
     auto shape = std::make_unique<Shape>();
-    shape->dna = dna;
-    shape->center = shapeCenter;
+    shape->blocks = blocks;
+    shape->id = shapeId(blocks);
+    shape->center = center;
     shape->mesh = makeMesh(1.0f);
     shape->outlineMesh = makeMesh(1.25f);
     shape->rotation = rotation;
@@ -460,23 +482,29 @@ void Demo::initializeShapes()
 
     m_shapes.clear();
     for (int i = 0; i < ShapeCount; ++i) {
-        size_t dna = [this, i, &generator] {
+        auto blocks = [this, i, &generator] {
             if (i == m_secondShape)
-                return m_shapes[m_firstShape]->dna;
+                return m_shapes[m_firstShape]->blocks;
+
             std::uniform_int_distribution<size_t> distribution(0, (1 << (3 * ShapeSegments)) - 1);
-            size_t dna;
-            for (;;) {
-                dna = distribution(generator);
-                const auto mirrorDna = dna ^ (2 | (2 << 3) | (2 << 6) | (2 << 9));
-                auto it = std::find_if(m_shapes.begin(), std::next(m_shapes.begin(), i), [dna, mirrorDna](auto& shape) {
-                    return shape->dna == dna || shape->dna == mirrorDna;
-                });
-                if (it == m_shapes.end())
+            std::optional<std::vector<glm::vec3>> blocks;
+            for (;;)
+            {
+                blocks = generateBlocks(distribution(generator));
+                const auto valid = [this, i, &blocks] {
+                    if (!blocks)
+                        return false;
+                    const auto id = shapeId(*blocks);
+                    auto it = std::find_if(m_shapes.begin(), m_shapes.end(),
+                                           [&id](const auto &shape) { return id == shape->id; });
+                    return it == m_shapes.end();
+                }();
+                if (valid)
                     break;
             }
-            return dna;
+            return *blocks;
         }();
-        m_shapes.push_back(initializeShape(dna));
+        m_shapes.push_back(initializeShape(blocks));
     }
 
     m_selectedCount = 0;
@@ -489,6 +517,15 @@ void Demo::handleKeyPress(Key)
     case State::Intro:
         setState(State::Playing);
         break;
+#ifdef CHEAT
+    case State::Playing: {
+        if (!m_shapes[m_firstShape]->selected)
+            toggleShapeSelection(m_firstShape);
+        else
+            toggleShapeSelection(m_secondShape);
+        break;
+    }
+#endif
     case State::Result: {
         if (m_stateTime > FadeOutTime)
         {
