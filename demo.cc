@@ -93,6 +93,19 @@ std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
     return id;
 }
 
+bool sameIds(const std::vector<float> &lhs, const std::vector<float> &rhs)
+{
+    if (lhs.size() != rhs.size())
+        return false;
+    for (size_t i = 0, size = lhs.size(); i < size; ++i)
+    {
+        constexpr auto Epsilon = 1e-4;
+        if (std::abs(lhs[i] - rhs[i]) > Epsilon)
+            return false;
+    }
+    return true;
+}
+
 std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
 {
     static std::default_random_engine generator;
@@ -496,7 +509,7 @@ void Demo::initializeShapes()
                         return false;
                     const auto id = shapeId(*blocks);
                     auto it = std::find_if(m_shapes.begin(), m_shapes.end(),
-                                           [&id](const auto &shape) { return id == shape->id; });
+                                           [&id](const auto &shape) { return sameIds(id, shape->id); });
                     return it == m_shapes.end();
                 }();
                 if (valid)
@@ -506,6 +519,8 @@ void Demo::initializeShapes()
         }();
         m_shapes.push_back(initializeShape(blocks));
     }
+
+    assert(sameIds(m_shapes[m_firstShape]->id, m_shapes[m_secondShape]->id));
 
     m_selectedCount = 0;
 }
