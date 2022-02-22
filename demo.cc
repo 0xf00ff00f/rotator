@@ -30,7 +30,8 @@ static const auto BackgroundColor = glm::vec3(0.75);
 constexpr const auto TotalPlayTime = 120.0f;
 
 constexpr const auto FadeOutTime = 2.0f;
-constexpr const auto SuccessAnimationTime = 2.0f;
+constexpr const auto SuccessStateTime = 2.0f;
+constexpr const auto FailStateTime = 1.0f;
 
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
@@ -197,6 +198,7 @@ Demo::Demo(int canvasWidth, int canvasHeight)
     , m_canvasHeight(canvasHeight)
     , m_shaderManager(new ShaderManager)
     , m_uiPainter(new UIPainter(m_shaderManager.get()))
+    , m_shakes(ShapeCount)
 {
     m_uiPainter->resize(canvasWidth, canvasHeight);
     initialize();
@@ -245,7 +247,15 @@ void Demo::renderShapes() const
 
         const auto viewPos = glm::vec3(0, 0, -25);
         const auto viewUp = glm::vec3(0, 1, 0);
-        const auto view = glm::lookAt(viewPos, glm::vec3(0, 0, 0), viewUp);
+        const auto viewCenter = [this, i, &shape] {
+            if (m_state == State::Fail && shape->selected)
+            {
+                const auto &shake = m_shakes[i];
+                return glm::vec3(shake.eval(m_stateTime / FailStateTime), 0);
+            }
+            return glm::vec3(0, 0, 0);
+        }();
+        const auto view = glm::lookAt(viewPos, viewCenter, viewUp);
 
         const auto t = glm::translate(glm::mat4(1.0f), -shape->center);
 
@@ -253,7 +263,7 @@ void Demo::renderShapes() const
             if ((m_state == State::Success || m_state == State::Result) && i == m_secondShape)
             {
                 const auto targetRotation = m_shapes[m_firstShape]->rotation;
-                const auto l = m_state == State::Result ? FadeOutTime : 0.5f * SuccessAnimationTime;
+                const auto l = m_state == State::Result ? FadeOutTime : 0.5f * SuccessStateTime;
                 const auto t = std::min(1.0f, m_stateTime / l);
                 return glm::mix(shape->rotation, targetRotation, t);
             }
@@ -269,14 +279,21 @@ void Demo::renderShapes() const
 
         if (shape->selected)
         {
-            const auto color = [this, i] {
-                static const auto OutlineColor = glm::vec3(1, 0, 0);
-                if (m_state == State::Result)
+            auto color = [this] {
+                switch (m_state)
                 {
-                    return glm::mix(OutlineColor, BackgroundColor, std::min(1.0f, m_stateTime / FadeOutTime));
+                case State::Fail:
+                    return glm::vec3(1, 0, 0);
+                case State::Success:
+                    return glm::vec3(0, 1, 0);
+                default:
+                    return glm::vec3(1, 1, 0);
                 }
-                return OutlineColor;
             }();
+            if (m_state == State::Result)
+            {
+                color = glm::mix(color, BackgroundColor, std::min(1.0f, m_stateTime / FadeOutTime));
+                }
             m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(color, 1));
             glDisable(GL_DEPTH_TEST);
             shape->outlineMesh->render(GL_TRIANGLES);
@@ -293,7 +310,7 @@ void Demo::renderShapes() const
             }
             case State::Success: {
                 if (i != m_firstShape && i != m_secondShape)
-                    return std::min(1.0f, m_stateTime / (0.5f * SuccessAnimationTime));
+                    return std::min(1.0f, m_stateTime / (0.5f * SuccessStateTime));
                 break;
             }
             default:
@@ -323,8 +340,9 @@ void Demo::renderUI() const
     case State::Intro:
         renderIntro();
         break;
-    case State::Playing:
     case State::Success:
+    case State::Fail:
+    case State::Playing:
         renderTimer();
         break;
     case State::Result:
@@ -365,9 +383,9 @@ void Demo::renderTimer() const
     }();
 
     const auto alpha = [this] {
-        if (m_state == State::Playing || m_state == State::Success)
-            return 1.0f;
-        return std::max(0.0f, 1.0f - m_stateTime / FadeOutTime);
+        if (m_state == State::Result)
+            return std::max(0.0f, 1.0f - m_stateTime / FadeOutTime);
+        return 1.0f;
     }();
 
     m_uiPainter->setFont(FontBig);
@@ -462,12 +480,21 @@ void Demo::update(float elapsed)
     case State::Intro:
         break;
     case State::Success:
-        if (m_stateTime > SuccessAnimationTime)
+        if (m_stateTime > SuccessStateTime)
         {
             setState(State::Playing);
             initializeShapes();
         }
         break;
+    case State::Fail:
+        if (m_stateTime > FailStateTime)
+        {
+            for (auto &shape : m_shapes)
+                shape->selected = false;
+            m_selectedCount = 0;
+            setState(State::Playing);
+        }
+        [[fallthrough]];
     case State::Playing:
         m_playTime += elapsed;
         if (m_playTime > TotalPlayTime)
@@ -607,10 +634,17 @@ void Demo::toggleShapeSelection(int index)
         {
             shape->selected = true;
             ++m_selectedCount;
-            if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
+            if (m_selectedCount == 2)
             {
-                ++m_score;
-                setState(State::Success);
+                if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
+                {
+                    ++m_score;
+                    setState(State::Success);
+                }
+                else
+                {
+                    setState(State::Fail);
+                }
             }
         }
     }

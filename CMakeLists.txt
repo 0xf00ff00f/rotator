@@ -27,6 +27,7 @@ set(SOURCES
     shadermanager.cc
     spritebatcher.cc
     uipainter.cc
+    shake.cc
 )
 
 add_executable(game ${SOURCES})

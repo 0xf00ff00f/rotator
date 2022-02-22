@@ -2,6 +2,7 @@
 
 #include "noncopyable.h"
 #include "wobble.h"
+#include "shake.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -46,6 +47,7 @@ private:
         Intro,
         Playing,
         Success,
+        Fail,
         Result,
     };
 
@@ -74,4 +76,5 @@ private:
     float m_playTime = 0.0f;
     int m_selectedCount = 0;
     int m_score = 0;
+    std::vector<Shake> m_shakes;
 };
