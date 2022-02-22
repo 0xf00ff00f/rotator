@@ -35,7 +35,19 @@ constexpr const auto FailStateTime = 1.0f;
 
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
-std::optional<std::vector<glm::vec3>> generateBlocks(size_t dna)
+auto randomNumberGenerator()
+{
+    std::random_device rd;
+    return std::mt19937(rd());
+}
+
+int randomBit()
+{
+    static auto generator = randomNumberGenerator();
+    return std::uniform_int_distribution<int>(0, 1)(generator);
+}
+
+std::optional<std::vector<glm::vec3>> generateBlocks()
 {
     auto center = glm::vec3(0);
     unsigned direction = 2;
@@ -44,9 +56,8 @@ std::optional<std::vector<glm::vec3>> generateBlocks(size_t dna)
     std::vector<glm::vec3> blocks;
     for (size_t i = 0; i < ShapeSegments; ++i)
     {
-        auto base = dna >> (i * 3);
         const auto d = 2.0f * side * glm::vec3(direction >> 2, (direction >> 1) & 1, direction & 1);
-        const auto l = 2 + (i & 1) + (base & 1);
+        const auto l = 2 + (i & 1) + randomBit();
         for (int i = 0; i < l; ++i)
         {
             // reject self-intersecting shapes
@@ -64,23 +75,39 @@ std::optional<std::vector<glm::vec3>> generateBlocks(size_t dna)
         switch (direction)
         {
         case 1:
-            direction = (base & 2) ? 2 : 4;
+            direction = randomBit() ? 2 : 4;
             break;
         case 2:
-            direction = (base & 2) ? 1 : 4;
+            direction = randomBit() ? 1 : 4;
             break;
         case 4:
-            direction = (base & 2) ? 1 : 2;
+            direction = randomBit() ? 1 : 2;
             break;
         default:
             assert(false);
             break;
         }
-        if (base & 4)
+        if (randomBit())
             side = -side;
     }
 
     return blocks;
+}
+
+glm::quat generateRotation()
+{
+    static const std::initializer_list<glm::vec3> dirs = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}};
+    auto r = glm::mat4(1.0f);
+    for (glm::vec3 dir : dirs)
+    {
+        auto angle = 0.25f * glm::pi<float>();
+        if (randomBit())
+            angle = -angle;
+        if (randomBit())
+            dir = -dir;
+        r = glm::rotate(r, angle, dir);
+    }
+    return glm::quat_cast(r);
 }
 
 std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
@@ -94,23 +121,32 @@ std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
     return id;
 }
 
-bool sameIds(const std::vector<float> &lhs, const std::vector<float> &rhs)
+bool fuzzyEquals(float lhs, float rhs)
+{
+    constexpr auto Epsilon = 1e-4f;
+    return std::abs(lhs - rhs) < Epsilon;
+}
+
+bool fuzzyEquals(const std::vector<float> &lhs, const std::vector<float> &rhs)
 {
     if (lhs.size() != rhs.size())
         return false;
     for (size_t i = 0, size = lhs.size(); i < size; ++i)
     {
-        constexpr auto Epsilon = 1e-4;
-        if (std::abs(lhs[i] - rhs[i]) > Epsilon)
+        if (!fuzzyEquals(lhs[i], rhs[i]))
             return false;
     }
     return true;
 }
 
-std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
+bool fuzzyEquals(const glm::quat &lhs, const glm::quat &rhs)
 {
-    static std::default_random_engine generator;
+    return fuzzyEquals(lhs.x, rhs.x) && fuzzyEquals(lhs.y, rhs.y) && fuzzyEquals(lhs.z, rhs.z) &&
+           fuzzyEquals(lhs.w, rhs.w);
+}
 
+std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks, const glm::quat &rotation)
+{
     auto makeMesh = [&blocks](float blockScale) {
         struct Vertex
         {
@@ -163,23 +199,6 @@ std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks)
 
     auto center = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
     center *= 1.0f / blocks.size();
-
-    const auto rotation = [] {
-        std::uniform_int_distribution<int> zero_or_one(0, 1);
-
-        static const std::initializer_list<glm::vec3> dirs = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}};
-        auto r = glm::mat4(1.0f);
-        for (glm::vec3 dir : dirs)
-        {
-            auto angle = 0.25f * glm::pi<float>();
-            if (zero_or_one(generator))
-                angle = -angle;
-            if (zero_or_one(generator))
-                dir = -dir;
-            r = glm::rotate(r, angle, dir);
-        }
-        return glm::quat_cast(r);
-    }();
 
     auto shape = std::make_unique<Shape>();
     shape->blocks = blocks;
@@ -509,30 +528,27 @@ void Demo::initialize()
 
 void Demo::initializeShapes()
 {
-    std::random_device rd;
-    std::mt19937 generator(rd());
-
+    static auto generator = randomNumberGenerator();
     m_firstShape = std::uniform_int_distribution<int>(0, ShapeCount - 2)(generator);
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
     m_shapes.clear();
     for (int i = 0; i < ShapeCount; ++i)
     {
-        auto blocks = [this, i, &generator] {
+        auto blocks = [this, i] {
             if (i == m_secondShape)
                 return m_shapes[m_firstShape]->blocks;
-
             std::uniform_int_distribution<size_t> distribution(0, (1 << (3 * ShapeSegments)) - 1);
             std::optional<std::vector<glm::vec3>> blocks;
             for (;;)
             {
-                blocks = generateBlocks(distribution(generator));
+                blocks = generateBlocks();
                 const auto valid = [this, i, &blocks] {
                     if (!blocks)
                         return false;
                     const auto id = shapeId(*blocks);
                     auto it = std::find_if(m_shapes.begin(), m_shapes.end(),
-                                           [&id](const auto &shape) { return sameIds(id, shape->id); });
+                                           [&id](const auto &shape) { return fuzzyEquals(id, shape->id); });
                     return it == m_shapes.end();
                 }();
                 if (valid)
@@ -540,10 +556,25 @@ void Demo::initializeShapes()
             }
             return *blocks;
         }();
-        m_shapes.push_back(initializeShape(blocks));
+        auto rotation = [this, i] {
+            glm::quat rotation;
+            for (;;)
+            {
+                rotation = generateRotation();
+                const auto valid = [this, i, &rotation] {
+                    if (i != m_secondShape)
+                        return true;
+                    return !fuzzyEquals(m_shapes[m_firstShape]->rotation, rotation);
+                }();
+                if (valid)
+                    break;
+            }
+            return rotation;
+        }();
+        m_shapes.push_back(initializeShape(blocks, rotation));
     }
 
-    assert(sameIds(m_shapes[m_firstShape]->id, m_shapes[m_secondShape]->id));
+    assert(fuzzyEquals(m_shapes[m_firstShape]->id, m_shapes[m_secondShape]->id));
 
     m_selectedCount = 0;
 }
