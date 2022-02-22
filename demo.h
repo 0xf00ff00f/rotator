@@ -76,5 +76,6 @@ private:
     float m_playTime = 0.0f;
     int m_selectedCount = 0;
     int m_score = 0;
+    int m_attempts = 0;
     std::vector<Shake> m_shakes;
 };

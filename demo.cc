@@ -424,29 +424,6 @@ void Demo::renderScore() const
     static const UIPainter::Font FontBig{FontName, 60};
     static const UIPainter::Font FontSmall{FontName, 40};
 
-    const auto scoreText = [this] {
-        std::stringstream ss;
-        ss << m_score << " SHAPES ROTATED";
-        return ss.str();
-    }();
-
-    const auto averageText = [this] {
-        std::stringstream ss;
-        if (m_score == 0)
-        {
-            ss << "NaN"s;
-        }
-        else
-        {
-            const auto secs = TotalPlayTime / m_score;
-            ss << std::fixed;
-            ss << std::setprecision(2);
-            ss << secs;
-        }
-        ss << " SECONDS/SHAPE";
-        return ss.str();
-    }();
-
     const auto alpha = [this] {
         constexpr auto StartTime = 2.0f;
         constexpr auto FadeInTime = 1.0f;
@@ -457,8 +434,27 @@ void Demo::renderScore() const
     const auto color = glm::vec4(0, 0, 0, alpha);
 
     m_uiPainter->setFont(FontBig);
+
+    const auto scoreText = [this] {
+        std::stringstream ss;
+        ss << m_score << " SHAPES ROTATED";
+        return ss.str();
+    }();
     drawCenteredText(glm::vec2(0, -40), color, scoreText);
-    drawCenteredText(glm::vec2(0, 20), color, averageText);
+
+    if (m_score > 0)
+    {
+        const auto accuracyText = [this] {
+            std::stringstream ss;
+            ss << "ACCURACY: ";
+            ss << std::fixed;
+            ss << std::setprecision(2);
+            ss << m_score * 100.0f / m_attempts;
+            ss << "%";
+            return ss.str();
+        }();
+        drawCenteredText(glm::vec2(0, 20), color, accuracyText);
+    }
 
     m_uiPainter->setFont(FontSmall);
     drawCenteredText(glm::vec2(0, 200), color, "TAP TO RETRY"s);
@@ -508,6 +504,7 @@ void Demo::update(float elapsed)
 void Demo::initialize()
 {
     m_score = 0;
+    m_attempts = 0;
     m_playTime = 0.0f;
     initializeShapes();
 }
@@ -636,6 +633,7 @@ void Demo::toggleShapeSelection(int index)
             ++m_selectedCount;
             if (m_selectedCount == 2)
             {
+                ++m_attempts;
                 if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
                 {
                     ++m_score;
