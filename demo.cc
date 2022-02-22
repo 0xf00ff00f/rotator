@@ -627,22 +627,19 @@ void Demo::toggleShapeSelection(int index)
     }
     else
     {
-        if (m_selectedCount < 2)
+        shape->selected = true;
+        ++m_selectedCount;
+        if (m_selectedCount == 2)
         {
-            shape->selected = true;
-            ++m_selectedCount;
-            if (m_selectedCount == 2)
+            ++m_attempts;
+            if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
             {
-                ++m_attempts;
-                if (m_shapes[m_firstShape]->selected && m_shapes[m_secondShape]->selected)
-                {
-                    ++m_score;
-                    setState(State::Success);
-                }
-                else
-                {
-                    setState(State::Fail);
-                }
+                ++m_score;
+                setState(State::Success);
+            }
+            else
+            {
+                setState(State::Fail);
             }
         }
     }
