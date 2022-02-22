@@ -291,9 +291,7 @@ void Demo::renderShapes() const
                 }
             }();
             if (m_state == State::Result)
-            {
                 color = glm::mix(color, BackgroundColor, std::min(1.0f, m_stateTime / FadeOutTime));
-                }
             m_shaderManager->setUniform(ShaderManager::MixColor, glm::vec4(color, 1));
             glDisable(GL_DEPTH_TEST);
             shape->outlineMesh->render(GL_TRIANGLES);
@@ -518,7 +516,8 @@ void Demo::initializeShapes()
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
     m_shapes.clear();
-    for (int i = 0; i < ShapeCount; ++i) {
+    for (int i = 0; i < ShapeCount; ++i)
+    {
         auto blocks = [this, i, &generator] {
             if (i == m_secondShape)
                 return m_shapes[m_firstShape]->blocks;
