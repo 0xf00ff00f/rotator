@@ -35,20 +35,10 @@ constexpr const auto FailStateTime = 1.0f;
 
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
-auto randomNumberGenerator()
+std::optional<std::vector<glm::vec3>> generateBlocks(auto &generator)
 {
-    std::random_device rd;
-    return std::mt19937(rd());
-}
+    auto randomBit = [&generator] { return std::uniform_int_distribution<int>(0, 1)(generator); };
 
-int randomBit()
-{
-    static auto generator = randomNumberGenerator();
-    return std::uniform_int_distribution<int>(0, 1)(generator);
-}
-
-std::optional<std::vector<glm::vec3>> generateBlocks()
-{
     auto center = glm::vec3(0);
     unsigned direction = 2;
     float side = 1;
@@ -94,20 +84,38 @@ std::optional<std::vector<glm::vec3>> generateBlocks()
     return blocks;
 }
 
-glm::quat generateRotation()
+glm::quat generateRotation(auto &generator)
 {
-    static const std::initializer_list<glm::vec3> dirs = {{0, 0, 1}, {0, 1, 0}, {1, 0, 0}};
-    auto r = glm::mat4(1.0f);
-    for (glm::vec3 dir : dirs)
-    {
-        auto angle = 0.25f * glm::pi<float>();
-        if (randomBit())
-            angle = -angle;
-        if (randomBit())
-            dir = -dir;
-        r = glm::rotate(r, angle, dir);
-    }
-    return glm::quat_cast(r);
+    static const std::array<glm::imat4x4, 24> rotations = {
+        glm::imat4x4{{0, 0, -1, 0}, {0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, -1, 0}, {0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, 1, 0}, {0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, 1, 0}, {0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, -1, 0}, {1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, 1, 0}, {-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 0, 1, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, -1, 0, 0}, {0, 0, -1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, -1, 0, 0}, {0, 0, 1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 1, 0, 0}, {0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 1, 0, 0}, {0, 0, 1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{-1, 0, 0, 0}, {0, 0, -1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{1, 0, 0, 0}, {0, 0, -1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{1, 0, 0, 0}, {0, 0, 1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+        glm::imat4x4{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
+    const auto index = std::uniform_int_distribution<int>(0, rotations.size() - 1)(generator);
+    const auto r = glm::mat4(rotations[index]);
+    const auto rx = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(1, 0, 0));
+    const auto rz = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(0, 0, 1));
+    return glm::quat_cast(rx * rz * r);
 }
 
 std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
@@ -528,7 +536,10 @@ void Demo::initialize()
 
 void Demo::initializeShapes()
 {
-    static auto generator = randomNumberGenerator();
+    static auto generator = [] {
+        std::random_device rd;
+        return std::mt19937(rd());
+    }();
     m_firstShape = std::uniform_int_distribution<int>(0, ShapeCount - 2)(generator);
     m_secondShape = std::uniform_int_distribution<int>(m_firstShape + 1, ShapeCount - 1)(generator);
 
@@ -542,7 +553,7 @@ void Demo::initializeShapes()
             std::optional<std::vector<glm::vec3>> blocks;
             for (;;)
             {
-                blocks = generateBlocks();
+                blocks = generateBlocks(generator);
                 const auto valid = [this, i, &blocks] {
                     if (!blocks)
                         return false;
@@ -560,7 +571,7 @@ void Demo::initializeShapes()
             glm::quat rotation;
             for (;;)
             {
-                rotation = generateRotation();
+                rotation = generateRotation(generator);
                 const auto valid = [this, i, &rotation] {
                     if (i != m_secondShape)
                         return true;
