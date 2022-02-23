@@ -1,0 +1,2 @@
+* better shape comparison: test all 24 rotations
+* test if shapes match after applying initial rotation
