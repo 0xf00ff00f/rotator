@@ -14,13 +14,15 @@ class Mesh;
 class ShaderManager;
 class UIPainter;
 
+using Blocks = std::vector<glm::ivec3>;
+
 struct Shape
 {
-    std::vector<glm::vec3> blocks;
-    std::vector<float> id;
+    Blocks blocks;
     glm::vec3 center;
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<Mesh> outlineMesh;
+    glm::imat4x4 baseRotation;
     glm::quat rotation;
     bool selected = false;
     Wobble wobble = Wobble{0.125f};

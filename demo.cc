@@ -25,7 +25,7 @@ constexpr const auto ShapeSegments = 4;
 constexpr const auto Columns = 3;
 constexpr const auto TopMargin = 40;
 
-static const auto BackgroundColor = glm::vec3(0.75);
+constexpr const auto BackgroundColor = glm::vec3(0.75);
 
 constexpr const auto TotalPlayTime = 120.0f;
 
@@ -33,44 +33,100 @@ constexpr const auto FadeOutTime = 2.0f;
 constexpr const auto SuccessStateTime = 2.0f;
 constexpr const auto FailStateTime = 1.0f;
 
+constexpr const std::array<glm::imat4x4, 24> Rotations = {
+    glm::imat4x4{{0, 0, -1, 0}, {0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, -1, 0}, {0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, 1, 0}, {0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, 1, 0}, {0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, -1, 0}, {1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, 1, 0}, {-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 0, 1, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, -1, 0, 0}, {0, 0, -1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, -1, 0, 0}, {0, 0, 1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 1, 0, 0}, {0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 1, 0, 0}, {0, 0, 1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{-1, 0, 0, 0}, {0, 0, -1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{1, 0, 0, 0}, {0, 0, -1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{1, 0, 0, 0}, {0, 0, 1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
+    glm::imat4x4{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
+
 constexpr const char *FontName = "OpenSans_Regular.ttf";
 
-std::optional<std::vector<glm::vec3>> generateBlocks(auto &generator)
+Blocks rotated(const Blocks &shape, const glm::imat4x4 &rotation)
+{
+    Blocks rotated(shape.size());
+    std::transform(shape.begin(), shape.end(), rotated.begin(),
+                   [&rotation](const glm::ivec3 &p) { return rotation * glm::ivec4(p, 1); });
+    return rotated;
+}
+
+Blocks canonicalized(const Blocks &shape)
+{
+    const auto origin = std::accumulate(shape.begin(), shape.end(), glm::ivec3(std::numeric_limits<int>::max()),
+                                        [](const glm::ivec3 &a, const glm::ivec3 &b) { return glm::min(a, b); });
+    Blocks result(shape.size());
+    std::transform(shape.begin(), shape.end(), result.begin(), [&origin](const glm::ivec3 &p) { return p - origin; });
+    std::sort(result.begin(), result.end(), [](const glm::ivec3 &lhs, const glm::ivec3 &rhs) {
+        return std::tie(lhs.x, lhs.y, lhs.z) < std::tie(rhs.x, rhs.y, rhs.z);
+    });
+    return result;
+}
+
+bool sameShape(const Blocks &lhs, const Blocks &rhs)
+{
+    if (lhs.size() != rhs.size())
+        return false;
+    const Blocks base = canonicalized(lhs);
+    for (const auto &rotation : Rotations)
+    {
+        if (base == canonicalized(rotated(rhs, rotation)))
+            return true;
+    }
+    return false;
+}
+
+std::optional<Blocks> generateShape(std::mt19937 &generator)
 {
     auto randomBit = [&generator] { return std::uniform_int_distribution<int>(0, 1)(generator); };
 
-    auto center = glm::vec3(0);
+    auto center = glm::ivec3(0);
     unsigned direction = 2;
-    float side = 1;
+    int side = 1;
 
-    std::vector<glm::vec3> blocks;
+    Blocks blocks;
     for (size_t i = 0; i < ShapeSegments; ++i)
     {
-        const auto d = 2.0f * side * glm::vec3(direction >> 2, (direction >> 1) & 1, direction & 1);
+        const auto d = 2 * side * glm::ivec3(direction >> 2, (direction >> 1) & 1, direction & 1);
         const auto l = 2 + (i & 1) + randomBit();
         for (int i = 0; i < l; ++i)
         {
             // reject self-intersecting shapes
-            auto it = std::find(blocks.begin(), blocks.end(), center);
-            if (it != blocks.end())
+            if (auto it = std::find(blocks.begin(), blocks.end(), center); it != blocks.end())
                 return {};
             blocks.push_back(center);
             center += d;
         }
-
-        // 001 -> 010 100
-        // 010 -> 001 100
-        // 100 -> 001 010
-
         switch (direction)
         {
         case 1:
+            // 001 -> 010 100
             direction = randomBit() ? 2 : 4;
             break;
         case 2:
+            // 010 -> 001 100
             direction = randomBit() ? 1 : 4;
             break;
         case 4:
+            // 100 -> 001 010
             direction = randomBit() ? 1 : 2;
             break;
         default:
@@ -80,80 +136,10 @@ std::optional<std::vector<glm::vec3>> generateBlocks(auto &generator)
         if (randomBit())
             side = -side;
     }
-
     return blocks;
 }
 
-glm::quat generateRotation(auto &generator)
-{
-    static const std::array<glm::imat4x4, 24> rotations = {
-        glm::imat4x4{{0, 0, -1, 0}, {0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, -1, 0}, {0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, 1, 0}, {0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, 1, 0}, {0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, -1, 0}, {1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, 1, 0}, {-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 0, 1, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, -1, 0, 0}, {0, 0, -1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, -1, 0, 0}, {0, 0, 1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 1, 0, 0}, {0, 0, -1, 0}, {-1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 1, 0, 0}, {0, 0, 1, 0}, {1, 0, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, -1, 0, 0}, {-1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 1, 0, 0}, {-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{-1, 0, 0, 0}, {0, 0, -1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{-1, 0, 0, 0}, {0, 0, 1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{1, 0, 0, 0}, {0, 0, -1, 0}, {0, 1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{1, 0, 0, 0}, {0, 0, 1, 0}, {0, -1, 0, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{-1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{-1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{1, 0, 0, 0}, {0, -1, 0, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}},
-        glm::imat4x4{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
-    const auto index = std::uniform_int_distribution<int>(0, rotations.size() - 1)(generator);
-    const auto r = glm::mat4(rotations[index]);
-    const auto rx = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(1, 0, 0));
-    const auto rz = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(0, 0, 1));
-    return glm::quat_cast(rx * rz * r);
-}
-
-std::vector<float> shapeId(const std::vector<glm::vec3> &blocks)
-{
-    auto center = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
-    center *= 1.0f / blocks.size();
-    std::vector<float> id;
-    std::transform(blocks.begin(), blocks.end(), std::back_inserter(id),
-                   [&center](const glm::vec3 &block) { return glm::abs(glm::distance(center, block)); });
-    std::sort(id.begin(), id.end());
-    return id;
-}
-
-bool fuzzyEquals(float lhs, float rhs)
-{
-    constexpr auto Epsilon = 1e-4f;
-    return std::abs(lhs - rhs) < Epsilon;
-}
-
-bool fuzzyEquals(const std::vector<float> &lhs, const std::vector<float> &rhs)
-{
-    if (lhs.size() != rhs.size())
-        return false;
-    for (size_t i = 0, size = lhs.size(); i < size; ++i)
-    {
-        if (!fuzzyEquals(lhs[i], rhs[i]))
-            return false;
-    }
-    return true;
-}
-
-bool fuzzyEquals(const glm::quat &lhs, const glm::quat &rhs)
-{
-    return fuzzyEquals(lhs.x, rhs.x) && fuzzyEquals(lhs.y, rhs.y) && fuzzyEquals(lhs.z, rhs.z) &&
-           fuzzyEquals(lhs.w, rhs.w);
-}
-
-std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks, const glm::quat &rotation)
+std::unique_ptr<Shape> initializeShape(const Blocks &blocks, const glm::imat4x4 &baseRotation)
 {
     auto makeMesh = [&blocks](float blockScale) {
         struct Vertex
@@ -164,8 +150,8 @@ std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks, con
         std::vector<Vertex> vertices;
         for (const auto &center : blocks)
         {
-            auto addFace = [&vertices, &center, blockScale](const glm::vec3 &p0, const glm::vec3 &p1,
-                                                            const glm::vec3 &p2, const glm::vec3 &p3) {
+            auto addFace = [&vertices, blockScale, center = glm::vec3(center)](
+                               const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2, const glm::vec3 &p3) {
                 vertices.push_back({p0 * blockScale + center, {0, 0}});
                 vertices.push_back({p1 * blockScale + center, {0, 1}});
                 vertices.push_back({p2 * blockScale + center, {1, 1}});
@@ -205,15 +191,19 @@ std::unique_ptr<Shape> initializeShape(const std::vector<glm::vec3> &blocks, con
         return mesh;
     };
 
-    auto center = std::accumulate(blocks.begin(), blocks.end(), glm::vec3(0));
+    glm::vec3 center = std::accumulate(blocks.begin(), blocks.end(), glm::ivec3(0));
     center *= 1.0f / blocks.size();
+
+    const auto rx = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(1, 0, 0));
+    const auto rz = glm::rotate(glm::mat4(1), 0.25f * glm::pi<float>(), glm::vec3(0, 0, 1));
+    const auto rotation = glm::quat_cast(rx * rz * glm::mat4(baseRotation));
 
     auto shape = std::make_unique<Shape>();
     shape->blocks = blocks;
-    shape->id = shapeId(blocks);
     shape->center = center;
     shape->mesh = makeMesh(1.0f);
     shape->outlineMesh = makeMesh(1.25f);
+    shape->baseRotation = baseRotation;
     shape->rotation = rotation;
 
     return shape;
@@ -550,16 +540,15 @@ void Demo::initializeShapes()
             if (i == m_secondShape)
                 return m_shapes[m_firstShape]->blocks;
             std::uniform_int_distribution<size_t> distribution(0, (1 << (3 * ShapeSegments)) - 1);
-            std::optional<std::vector<glm::vec3>> blocks;
+            std::optional<Blocks> blocks;
             for (;;)
             {
-                blocks = generateBlocks(generator);
+                blocks = generateShape(generator);
                 const auto valid = [this, i, &blocks] {
                     if (!blocks)
                         return false;
-                    const auto id = shapeId(*blocks);
                     auto it = std::find_if(m_shapes.begin(), m_shapes.end(),
-                                           [&id](const auto &shape) { return fuzzyEquals(id, shape->id); });
+                                           [&blocks](const auto &shape) { return sameShape(*blocks, shape->blocks); });
                     return it == m_shapes.end();
                 }();
                 if (valid)
@@ -567,15 +556,18 @@ void Demo::initializeShapes()
             }
             return *blocks;
         }();
-        auto rotation = [this, i] {
-            glm::quat rotation;
+        auto rotation = [this, i, &blocks] {
+            glm::imat4x4 rotation;
             for (;;)
             {
-                rotation = generateRotation(generator);
-                const auto valid = [this, i, &rotation] {
+                const auto index = std::uniform_int_distribution<int>(0, Rotations.size() - 1)(generator);
+                rotation = Rotations[index];
+                const auto valid = [this, i, &blocks, &rotation] {
                     if (i != m_secondShape)
                         return true;
-                    return !fuzzyEquals(m_shapes[m_firstShape]->rotation, rotation);
+                    const auto &firstShape = m_shapes[m_firstShape];
+                    const Blocks base = canonicalized(rotated(firstShape->blocks, firstShape->baseRotation));
+                    return base != canonicalized(rotated(blocks, rotation));
                 }();
                 if (valid)
                     break;
@@ -585,7 +577,7 @@ void Demo::initializeShapes()
         m_shapes.push_back(initializeShape(blocks, rotation));
     }
 
-    assert(fuzzyEquals(m_shapes[m_firstShape]->id, m_shapes[m_secondShape]->id));
+    assert(sameShape(m_shapes[m_firstShape]->blocks, m_shapes[m_secondShape]->blocks));
 
     m_selectedCount = 0;
 }
