@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <optional>
 
 using namespace std::string_literals;
 
