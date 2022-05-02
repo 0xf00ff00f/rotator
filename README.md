@@ -19,10 +19,8 @@ $ sudo apt install libsdl1.2-dev libglew-dev
 Build with CMake:
     
 ```
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
+$ cmake -B build -S .
+$ cmake --build build --parallel
 ```
 
 Now run the `game` binary to play.
@@ -42,10 +40,8 @@ $ source path/to/emsdk/emsdk_env.sh
 Build with CMake:
 
 ```
-$ mkdir build
-$ cd build
-$ emcmake cmake ..
-$ make
+$ emcmake cmake -B build -S .
+$ cmake --build build --parallel
 ```
 
 This should generate the `game.{html,wasm,js}` files.
