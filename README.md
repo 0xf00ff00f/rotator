@@ -1,5 +1,7 @@
 A shape rotating game. Play it [here](https://0xf00ff00f.github.io/rotator/).
 
+If you like this you should get the [Android version](https://play.google.com/store/apps/details?id=xyz.sagui.rotator), it looks a lot nicer!
+
 ## Building
 
 Pull down submodules:
